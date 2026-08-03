@@ -33,7 +33,12 @@ jobs:
       # BOBA_BASE_URL from the hostname to match.
       - run: npm run build
 
+      # Self-provisions Pages on first run instead of requiring a manual
+      # visit to repository settings. Needs Pages to be available for the
+      # repo: public repos always, private repos on Pro and above.
       - uses: actions/configure-pages@v5
+        with:
+          enablement: true
 
       - uses: actions/upload-pages-artifact@v3
         with:
