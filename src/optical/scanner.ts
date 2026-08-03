@@ -37,19 +37,55 @@ function nativeDetector(): QrTextDecoder | null {
 }
 
 let decoderOverride: QrTextDecoder | null = null;
+let resolved: QrTextDecoder | null = null;
+let resolving: Promise<QrTextDecoder | null> | null = null;
 
-/** Install a decoder, e.g. a zxing-wasm wrapper on Safari and iOS. */
+/** Install a decoder explicitly, bypassing detection. */
 export function setQrDecoder(decoder: QrTextDecoder | null): void {
   decoderOverride = decoder;
+  resolved = decoder;
+  resolving = null;
 }
 
+/** The decoder already resolved, if any. Synchronous; does not trigger a load. */
 export function getQrDecoder(): QrTextDecoder | null {
-  return decoderOverride ?? nativeDetector();
+  return decoderOverride ?? resolved ?? nativeDetector();
 }
 
-/** True when this browser can decode QR without a registered fallback. */
+/** True when this browser decodes QR natively, with no wasm needed. */
 export function hasNativeQrDecoding(): boolean {
   return nativeDetector() !== null;
+}
+
+/**
+ * Resolve a decoder, loading the wasm fallback if the browser has no native one.
+ *
+ * Idempotent and safe to call concurrently. The wasm is behind a dynamic import
+ * so browsers with `BarcodeDetector` never download it.
+ */
+export function ensureQrDecoder(): Promise<QrTextDecoder | null> {
+  if (decoderOverride) return Promise.resolve(decoderOverride);
+  if (resolved) return Promise.resolve(resolved);
+
+  resolving ??= (async () => {
+    const native = nativeDetector();
+    if (native) {
+      resolved = native;
+      return native;
+    }
+
+    const { createZxingDecoder, preloadZxing } = await import('./zxing-decoder.ts');
+    await preloadZxing();
+
+    resolved = createZxingDecoder();
+    return resolved;
+  })().catch((error: Error) => {
+    // Let a later attempt retry rather than caching the failure forever.
+    resolving = null;
+    throw error;
+  });
+
+  return resolving;
 }
 
 export interface ReceiveProgress {
@@ -71,7 +107,8 @@ export class OpticalScanner {
   private options: Required<ScannerOptions>;
   private stream: MediaStream | null = null;
   private timer: number | null = null;
-  private decoder: FountainDecoder | null = null;
+  private decoder: QrTextDecoder | null = null;
+  private fountain: FountainDecoder | null = null;
   private header: FrameHeader | null = null;
   private busy = false;
 
@@ -91,11 +128,10 @@ export class OpticalScanner {
   async start(): Promise<void> {
     if (this.isRunning) return;
 
-    if (!getQrDecoder()) {
-      throw new Error(
-        'No QR decoder available. This browser lacks BarcodeDetector; ' +
-          'register a WASM decoder with setQrDecoder().'
-      );
+    // Resolves natively or loads the wasm fallback; only throws if both fail.
+    this.decoder = await ensureQrDecoder();
+    if (!this.decoder) {
+      throw new Error('No QR decoder could be loaded in this browser.');
     }
 
     this.stream = await navigator.mediaDevices.getUserMedia({
@@ -128,7 +164,7 @@ export class OpticalScanner {
 
   /** Discard progress and wait for a fresh session. */
   reset(): void {
-    this.decoder = null;
+    this.fountain = null;
     this.header = null;
   }
 
@@ -138,7 +174,7 @@ export class OpticalScanner {
     this.busy = true;
 
     try {
-      const decoder = getQrDecoder();
+      const decoder = this.decoder ?? getQrDecoder();
       if (!decoder || this.video.readyState < 2) return;
 
       const results = await decoder.decode(this.video);
@@ -165,28 +201,28 @@ export class OpticalScanner {
       this.reset();
     }
 
-    if (!this.decoder || !this.header) {
+    if (!this.fountain || !this.header) {
       this.header = frame.header;
-      this.decoder = new FountainDecoder(
+      this.fountain = new FountainDecoder(
         frame.header.numBlocks,
         frame.header.blockSize,
         frame.header.totalLength
       );
     }
 
-    const complete = this.decoder.addFrame(frame.header.seed, frame.payload);
+    const complete = this.fountain.addFrame(frame.header.seed, frame.payload);
 
     this.onProgress?.({
       header: this.header,
-      blocksSolved: Math.round(this.decoder.progress * this.decoder.numBlocks),
-      numBlocks: this.decoder.numBlocks,
-      framesSeen: this.decoder.framesSeen,
-      progress: this.decoder.progress,
+      blocksSolved: Math.round(this.fountain.progress * this.fountain.numBlocks),
+      numBlocks: this.fountain.numBlocks,
+      framesSeen: this.fountain.framesSeen,
+      progress: this.fountain.progress,
     });
 
     if (!complete) return;
 
-    const payload = this.decoder.result();
+    const payload = this.fountain.result();
     if (!payload) return;
 
     if (crc32(payload) !== this.header.checksum) {

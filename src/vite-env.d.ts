@@ -10,6 +10,11 @@ declare module '*.css?raw' {
   export default content;
 }
 
+declare module '*.wasm?url' {
+  const url: string;
+  export default url;
+}
+
 interface Window {
   BOBA_BASE_URL: string;
 }

@@ -95,19 +95,35 @@ positions, format bits, version bits) is computed. `test/qr-encode.test.ts`
 re-derives the published capacity figures from those two tables, so a mistyped
 digit cannot pass silently.
 
-## Known limitations
+## QR decoding across browsers
 
-**Receiving needs `BarcodeDetector`, which is Chromium-only.** Safari, iOS
-(every browser on it) and Firefox have no native QR decode. Sending works
-everywhere. Those platforms need a WASM decoder registered through the seam
-already provided:
+Only Chrome and Edge ship a usable `BarcodeDetector`. Safari and every browser
+on iOS have none, Firefox has none, and Brave ships Chromium but disables the
+API as a fingerprinting surface. So the scanner resolves a decoder at runtime:
+
+```
+ensureQrDecoder()
+  ├── BarcodeDetector present?  → use it, download nothing
+  └── otherwise                 → dynamic import of zxing-wasm (~450 KB gzipped)
+```
+
+The wasm binary is **bundled as a local asset**, never fetched from a CDN.
+zxing-wasm's default `locateFile` points at jsDelivr, which would fail the app's
+`default-src 'self'` CSP and break offline use — so it is overridden, and
+`connect-src 'self'` stands as a backstop. An e2e test asserts that no request
+ever leaves the origin.
+
+`script-src` carries `'wasm-unsafe-eval'`, without which the module cannot
+instantiate.
+
+To substitute your own decoder, the seam is still there:
 
 ```ts
 import { setQrDecoder } from './src/optical/scanner.ts';
-setQrDecoder({ async decode(video) { /* zxing-wasm */ return []; } });
+setQrDecoder({ async decode(video) { /* … */ return []; } });
 ```
 
-Nothing else in the app changes.
+## Known limitations
 
 **Payloads travel as base64url, costing 33% expansion.** Every browser QR
 decoder hands back a *string* (`BarcodeDetector` exposes `rawValue`, never raw

@@ -4,6 +4,7 @@ import { decodeSyncMessage } from '../../db/sync.ts';
 import { FLAG_GZIP, type FrameHeader } from '../../optical/frame.ts';
 import {
   OpticalScanner,
+  ensureQrDecoder,
   hasNativeQrDecoding,
   type ReceiveProgress,
 } from '../../optical/scanner.ts';
@@ -13,21 +14,45 @@ import style from './receive-page.css?raw';
 export class ReceivePageComponent extends BaseComponent {
   static tagName = 'receive-page';
   private scanner: OpticalScanner | null = null;
+  private decoderReady = false;
 
   constructor() {
     super(template, style);
   }
 
   init() {
-    if (!hasNativeQrDecoding()) {
-      this.querySelector('[data-unsupported]')?.removeAttribute('hidden');
-      const start = this.querySelector('#start-btn') as HTMLButtonElement | null;
-      if (start) start.disabled = true;
-    }
-
     this.delegate('click', '#start-btn', () => void this.start());
     this.delegate('click', '#stop-btn', () => this.stop());
     void initDb();
+    void this.prepareDecoder();
+  }
+
+  /**
+   * Browsers without BarcodeDetector load a wasm decoder, which takes a moment.
+   * Keep the button disabled until one way or the other has resolved, so it
+   * never looks available before it is.
+   */
+  private async prepareDecoder(): Promise<void> {
+    if (hasNativeQrDecoding()) {
+      this.decoderReady = true;
+      this.setRunning(false);
+      this.setStatus('Idle.');
+      return;
+    }
+
+    this.querySelector('[data-unsupported]')?.removeAttribute('hidden');
+    this.setStatus('Loading QR decoder…');
+
+    try {
+      await ensureQrDecoder();
+      this.decoderReady = true;
+      this.querySelector('[data-unsupported]')?.setAttribute('hidden', '');
+      this.setStatus('Idle.');
+    } catch (error) {
+      this.setStatus(`QR decoder failed to load: ${(error as Error).message}`);
+    } finally {
+      this.setRunning(false);
+    }
   }
 
   disconnectedCallback() {
@@ -82,7 +107,7 @@ export class ReceivePageComponent extends BaseComponent {
   private setRunning(running: boolean): void {
     const start = this.querySelector('#start-btn') as HTMLButtonElement | null;
     const stop = this.querySelector('#stop-btn') as HTMLButtonElement | null;
-    if (start) start.disabled = running || !hasNativeQrDecoding();
+    if (start) start.disabled = running || !this.decoderReady;
     if (stop) stop.disabled = !running;
   }
 

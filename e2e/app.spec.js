@@ -76,6 +76,32 @@ test('the transmitter paints QR frames onto the canvas', async ({ page }) => {
   await expect(page.locator('#start-btn')).toBeEnabled();
 });
 
+test('the receive page enables the camera once a decoder is ready', async ({ page }) => {
+  await page.goto('/receive');
+
+  // Chromium has BarcodeDetector, so this resolves without loading the wasm.
+  // On Safari/iOS/Firefox/Brave the same assertion holds once the wasm lands.
+  await expect(page.locator('#start-btn')).toBeEnabled({ timeout: 15000 });
+  await expect(page.locator('[data-status]')).toHaveText('Idle.');
+});
+
+test('nothing is ever fetched from a CDN', async ({ page }) => {
+  const external = [];
+  page.on('request', (request) => {
+    const url = new URL(request.url());
+    if (url.hostname !== 'localhost' && url.protocol !== 'data:') {
+      external.push(request.url());
+    }
+  });
+
+  await page.goto('/receive');
+  await page.waitForTimeout(2000);
+
+  // The wasm decoder must come from our own origin: the CSP forbids anything
+  // else, and an app that only works online is not this app.
+  expect(external).toEqual([]);
+});
+
 test('the service worker registers', async ({ page }) => {
   await page.goto('/');
 

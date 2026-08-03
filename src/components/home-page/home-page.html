@@ -30,12 +30,12 @@
 </section>
 
 <section class="panel" data-support hidden>
-  <h2 class="warning">camera decoding unavailable</h2>
+  <h2>QR decoding via WebAssembly</h2>
   <p>
-    This browser has no built-in QR decoder, so the <strong>receive</strong> side
-    will not work here. Sending still works. Chromium-based browsers on Android
-    and desktop have native support; Safari, iOS and Firefox need a WASM decoder
-    registered via <code>setQrDecoder()</code>.
+    This browser has no built-in QR decoder, so <strong>receive</strong> loads a
+    WebAssembly one on first use — roughly a second, then cached for offline.
+    Safari, iOS, Firefox and Brave all take this path. Everything works; it just
+    starts a moment slower.
   </p>
 </section>
 

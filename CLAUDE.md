@@ -241,12 +241,25 @@ e2e/                 Playwright specs
 
 ## 8. Platform reality
 
-**Receiving needs `BarcodeDetector`, which is Chromium-only.** Safari, iOS
-(every browser on it) and Firefox have no native QR decode. Sending works
-everywhere. The seam for a WASM decoder already exists —
-`setQrDecoder()` in `src/optical/scanner.ts` — and nothing else changes when one
-is registered. Do not write code that assumes native decoding is present; check
-`hasNativeQrDecoding()` and degrade visibly.
+`BarcodeDetector` is effectively Chrome-and-Edge only. Safari and every browser
+on iOS lack it, Firefox lacks it, and **Brave ships Chromium but disables it**
+as a fingerprinting surface — so "is it Chromium?" is not a usable test.
+
+`ensureQrDecoder()` in `src/optical/scanner.ts` resolves this at runtime: native
+if present, otherwise a dynamic import of zxing-wasm. Always go through it.
+Never gate UI on `hasNativeQrDecoding()` alone — that is the bug that left the
+camera button permanently disabled on iOS and Brave. Gate on the promise
+resolving.
+
+Three things about the wasm are load-bearing:
+
+- **It is bundled locally, never from a CDN.** zxing-wasm's default
+  `locateFile` points at jsDelivr; `src/optical/zxing-decoder.ts` overrides it
+  to a Vite `?url` asset. An e2e test asserts no request leaves the origin.
+- **`script-src` needs `'wasm-unsafe-eval'`** in the `index.html` CSP or the
+  module cannot instantiate.
+- **The import must stay dynamic** so browsers with native decoding never
+  download 450 KB they will not use.
 
 ---
 

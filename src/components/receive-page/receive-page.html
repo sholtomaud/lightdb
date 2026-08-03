@@ -7,11 +7,11 @@
 </section>
 
 <section class="panel danger-panel" data-unsupported hidden>
-  <h2 class="warning">no QR decoder in this browser</h2>
+  <h2 class="warning">loading QR decoder</h2>
   <p>
-    Receiving needs <code>BarcodeDetector</code>, which only Chromium-based
-    browsers ship. Safari, iOS and Firefox need a WASM decoder registered via
-    <code>setQrDecoder()</code>. Sending works everywhere.
+    This browser has no built-in QR decoder, so a WebAssembly one is being
+    fetched. It is cached afterwards and works offline. Safari, iOS, Firefox and
+    Brave all take this path.
   </p>
 </section>
 
@@ -22,7 +22,7 @@
 
 <section class="panel">
   <div class="row">
-    <button class="btn" id="start-btn">start camera</button>
+    <button class="btn" id="start-btn" disabled>start camera</button>
     <button class="btn" id="stop-btn" disabled>stop</button>
   </div>
   <div class="progress"><span data-bar></span></div>
