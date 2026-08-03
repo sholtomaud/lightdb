@@ -1,0 +1,30 @@
+{
+  "name": "lightdb",
+  "version": "0.1.0",
+  "description": "Sync a local database between devices over an optical channel. No radio.",
+  "type": "module",
+  "main": "./src/main.ts",
+  "engines": {
+    "node": ">=26.0.0"
+  },
+  "scripts": {
+    "dev": "vite --host",
+    "build": "vite build --base ./",
+    "preview": "vite preview --host",
+    "test:unit": "node --test test/*.test.ts",
+    "test": "npx playwright test",
+    "lint": "eslint ."
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.62.0",
+    "@types/node": "^26.1.1",
+    "@typescript-eslint/eslint-plugin": "^8.63.0",
+    "@typescript-eslint/parser": "^8.63.0",
+    "eslint": "^10.6.0",
+    "globals": "^17.7.0",
+    "playwright": "^1.62.0",
+    "typescript": "^5.9.3",
+    "vite": "^8.1.4"
+  }
+}

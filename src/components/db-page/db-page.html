@@ -1,0 +1,38 @@
+<section class="panel">
+  <h1>database</h1>
+  <p class="muted" data-status>…</p>
+</section>
+
+<section class="panel">
+  <h2>write</h2>
+  <div class="row">
+    <input type="text" id="key-input" placeholder="key" autocomplete="off" spellcheck="false" />
+    <input type="text" id="value-input" placeholder="value" autocomplete="off" spellcheck="false" />
+  </div>
+  <button class="btn" id="set-btn">set record</button>
+</section>
+
+<section class="panel">
+  <h2>records (<span data-count>0</span>)</h2>
+  <ul id="record-list" class="records"></ul>
+  <p class="muted" id="empty-state">No records yet. Write one above, or receive a sync.</p>
+</section>
+
+<section class="panel">
+  <h2 class="danger-text">danger</h2>
+  <p class="muted">
+    Clears the op log and this device's replica id. Records already synced to
+    another device survive there.
+  </p>
+  <button class="btn danger" id="reset-btn">erase local database</button>
+</section>
+
+<template id="record-template">
+  <li>
+    <div class="record-body">
+      <code class="record-key"></code>
+      <span class="record-value"></span>
+    </div>
+    <button class="btn delete-record" aria-label="delete">del</button>
+  </li>
+</template>

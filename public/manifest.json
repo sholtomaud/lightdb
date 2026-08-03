@@ -1,0 +1,19 @@
+{
+  "name": "lightdb",
+  "short_name": "lightdb",
+  "description": "Sync a local database between devices over an optical channel. No internet, no Bluetooth, no radio.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0a0a0a",
+  "theme_color": "#0a0a0a",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

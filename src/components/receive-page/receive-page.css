@@ -1,0 +1,58 @@
+:host {
+  display: block;
+}
+
+:host .viewport {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  background: #000;
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin-bottom: var(--gap);
+}
+
+:host #camera {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+:host .reticle {
+  position: absolute;
+  inset: 12%;
+  border: 2px solid var(--accent-dim);
+  border-radius: var(--radius);
+  pointer-events: none;
+}
+
+:host .danger-panel {
+  border-color: var(--warning);
+}
+
+:host .stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(6rem, 1fr));
+  gap: 0.5rem;
+}
+
+:host .stats div {
+  background: var(--surface-raised);
+  border-radius: var(--radius);
+  padding: 0.5rem;
+  text-align: center;
+}
+
+:host .stats dt {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+:host .stats dd {
+  font-family: var(--font-mono);
+  color: var(--accent);
+  font-size: 1.05rem;
+}

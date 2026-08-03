@@ -1,0 +1,35 @@
+<section class="panel">
+  <h1>receive</h1>
+  <p class="muted">
+    Point this camera at the sending screen. Frames may be missed, blurred or
+    repeated — the fountain code does not care.
+  </p>
+</section>
+
+<section class="panel danger-panel" data-unsupported hidden>
+  <h2 class="warning">no QR decoder in this browser</h2>
+  <p>
+    Receiving needs <code>BarcodeDetector</code>, which only Chromium-based
+    browsers ship. Safari, iOS and Firefox need a WASM decoder registered via
+    <code>setQrDecoder()</code>. Sending works everywhere.
+  </p>
+</section>
+
+<div class="viewport">
+  <video id="camera" playsinline muted></video>
+  <div class="reticle" aria-hidden="true"></div>
+</div>
+
+<section class="panel">
+  <div class="row">
+    <button class="btn" id="start-btn">start camera</button>
+    <button class="btn" id="stop-btn" disabled>stop</button>
+  </div>
+  <div class="progress"><span data-bar></span></div>
+  <p class="muted" data-status>Idle.</p>
+  <dl class="stats">
+    <div><dt>blocks</dt><dd data-blocks>—</dd></div>
+    <div><dt>frames</dt><dd data-frames>0</dd></div>
+    <div><dt>recovered</dt><dd data-progress>0%</dd></div>
+  </dl>
+</section>

@@ -1,0 +1,31 @@
+# Node.js
+node_modules/
+npm-debug.log
+
+# Build artifacts
+dist/
+build/
+.vite/
+
+# Testing
+/coverage/
+playwright-report/
+test-results/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Logs
+logs/
+*.log
+
+# Local configuration
+.env
+.env.*
+
+# Agent session state
+.claude/
+.crux/

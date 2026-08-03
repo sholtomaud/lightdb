@@ -1,0 +1,46 @@
+<section class="panel">
+  <h1>lightdb</h1>
+  <p>
+    A local database that syncs between devices over light. One screen displays an
+    animated QR stream, the other reads it with a camera. No internet, no Bluetooth,
+    no pairing, no radio of any kind.
+  </p>
+</section>
+
+<section class="panel">
+  <h2>how a sync goes</h2>
+  <ol class="steps">
+    <li><strong>Pass 1</strong> — this device shows its changes. The other scans them.</li>
+    <li><strong>Flip</strong> — turn the devices around.</li>
+    <li><strong>Pass 2</strong> — the other replies with what you are missing.</li>
+  </ol>
+  <p class="muted">
+    Both replicas have converged. Records merge conflict-free, so it does not
+    matter which side goes first or whether a pass is repeated.
+  </p>
+</section>
+
+<section class="panel">
+  <h2>this replica</h2>
+  <div class="stat-row">
+    <div class="stat"><span data-record-count>0</span><label>records</label></div>
+    <div class="stat"><span data-op-count>0</span><label>ops</label></div>
+  </div>
+  <p class="muted">actor <code data-actor>…</code></p>
+</section>
+
+<section class="panel" data-support hidden>
+  <h2 class="warning">camera decoding unavailable</h2>
+  <p>
+    This browser has no built-in QR decoder, so the <strong>receive</strong> side
+    will not work here. Sending still works. Chromium-based browsers on Android
+    and desktop have native support; Safari, iOS and Firefox need a WASM decoder
+    registered via <code>setQrDecoder()</code>.
+  </p>
+</section>
+
+<div class="row">
+  <a class="btn" href="/db" data-route>open database</a>
+  <a class="btn" href="/send" data-route>send</a>
+  <a class="btn" href="/receive" data-route>receive</a>
+</div>

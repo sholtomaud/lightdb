@@ -1,0 +1,57 @@
+:host {
+  display: block;
+}
+
+:host .records {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+:host .records li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--surface-raised);
+  border-radius: var(--radius);
+  padding: 0.6rem 0.75rem;
+}
+
+:host .record-body {
+  flex: 1;
+  min-width: 0;
+}
+
+:host .record-key {
+  display: block;
+  color: var(--accent);
+}
+
+:host .record-value {
+  display: block;
+  font-size: 0.9rem;
+  word-break: break-word;
+}
+
+:host .delete-record {
+  padding: 0.35rem 0.6rem;
+  min-height: 36px;
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  border-color: var(--border);
+}
+
+:host .delete-record:hover {
+  color: var(--danger);
+  border-color: var(--danger);
+  background: transparent;
+}
+
+:host #key-input {
+  flex: 1 1 8rem;
+}
+
+:host #value-input {
+  flex: 2 1 12rem;
+}
