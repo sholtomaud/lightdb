@@ -47,3 +47,40 @@ lint: start ## Run eslint inside container
 
 clean: ## Clear compiled directories and node dependencies
 	rm -rf node_modules dist .vite playwright-report test-results
+
+# --------------------------------------------------
+# Cross-language protocol conformance
+# --------------------------------------------------
+
+vectors: start ## Regenerate spec/vectors/ from the TypeScript implementation
+	$(CONTAINER_BIN) run --rm -v $(shell pwd):$(WORKDIR) $(IMAGE_APP) node tools/generate-vectors.ts
+
+test-ios: ## Run LightDBKit conformance tests (host Xcode, not the container)
+	cd ios/LightDBKit && swift test
+
+build-ios: ## Build the SwiftUI app for the iOS simulator (host Xcode)
+	cd ios && xcodebuild -project LightDB.xcodeproj -scheme LightDB \
+		-destination "generic/platform=iOS Simulator" -configuration Debug \
+		CODE_SIGNING_ALLOWED=NO build
+.PHONY: vectors test-ios build-ios
+
+SIM_NAME ?= iPhone 12 mini
+SIM_OS   ?= 18.5
+BUNDLE_ID := dev.lightdb.LightDB
+
+ios-platform: ## Download the Xcode iOS platform component (multi-GB, one time)
+	xcodebuild -downloadPlatform iOS
+
+sim-boot: ## Boot the simulator and open the Simulator app
+	-xcrun simctl boot "$(SIM_NAME)"
+	open -a Simulator
+
+run-ios: sim-boot ## Build, install and launch the app on the simulator
+	cd ios && xcodebuild -project LightDB.xcodeproj -scheme LightDB \
+		-destination "platform=iOS Simulator,name=$(SIM_NAME),OS=$(SIM_OS)" \
+		-derivedDataPath .build/xcode -configuration Debug \
+		CODE_SIGNING_ALLOWED=NO build
+	xcrun simctl install booted ios/.build/xcode/Build/Products/Debug-iphonesimulator/LightDB.app
+	xcrun simctl launch booted $(BUNDLE_ID)
+
+.PHONY: ios-platform sim-boot run-ios

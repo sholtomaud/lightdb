@@ -26,14 +26,71 @@ export function makeRng(seed: number): () => number {
   };
 }
 
+/** ln(2), exactly as IEEE-754 double 0x3FE62E42FEFA39EF. */
+export const LN2 = 0.6931471805599453;
+
+/** Terms in the atanh series. Fixed so the result cannot vary by platform. */
+const LOG_TERMS = 20;
+
 /**
- * Robust soliton distribution, as a cumulative table over degrees 1..k.
+ * Natural log, specified rather than borrowed.
+ *
+ * `Math.log` has implementation-defined precision -- the spec does not require
+ * correct rounding, and JavaScript engines and Swift's libm can disagree in the
+ * last ULP. Anywhere that difference crosses a distribution boundary, two
+ * implementations pick different block subsets from the same seed and every
+ * transfer between them fails while both test suites stay green.
+ *
+ * So the protocol defines its own. Range reduction by powers of two is exact,
+ * and the series uses only IEEE-754 add, subtract, multiply and divide, which
+ * *are* correctly rounded and therefore bit-identical on any conforming
+ * platform. See spec/PROTOCOL.md.
+ */
+export function protocolLog(x: number): number {
+  if (!Number.isFinite(x) || x <= 0) {
+    throw new RangeError(`protocolLog domain error: ${x}`);
+  }
+
+  // x = m * 2^e with m in [1, 2). Scaling by two is exact in binary floating
+  // point, so this reduction introduces no error at all.
+  let exponent = 0;
+  let mantissa = x;
+  while (mantissa >= 2) {
+    mantissa /= 2;
+    exponent += 1;
+  }
+  while (mantissa < 1) {
+    mantissa *= 2;
+    exponent -= 1;
+  }
+
+  // ln(m) = 2 * atanh(z) where z = (m-1)/(m+1), giving |z| < 1/3 so the series
+  // is far past converged by LOG_TERMS.
+  const z = (mantissa - 1) / (mantissa + 1);
+  const zSquared = z * z;
+
+  let term = z;
+  let sum = z;
+  for (let i = 1; i < LOG_TERMS; i += 1) {
+    term *= zSquared;
+    sum += term / (2 * i + 1);
+  }
+
+  return exponent * LN2 + 2 * sum;
+}
+
+/**
+ * Robust soliton distribution as cumulative *integer* thresholds over 1..k.
+ *
+ * Returned as scaled 32-bit values so sampling is an integer comparison
+ * against a raw PRNG draw. A float CDF would make the chosen degree hinge on
+ * the last bit of a division; this cannot.
  *
  * `c` and `delta` are the standard LT tuning knobs: lower `c` shifts mass
  * toward degree 1 (faster start, more frames overall).
  */
-export function robustSolitonCdf(k: number, c = 0.05, delta = 0.05): Float64Array {
-  const probabilities = new Float64Array(k + 1); // index by degree, 0 unused
+export function solitonThresholds(k: number, c = 0.05, delta = 0.05): Uint32Array {
+  const probabilities = new Float64Array(k + 1); // indexed by degree, 0 unused
 
   // Ideal soliton.
   probabilities[1] = 1 / k;
@@ -41,61 +98,74 @@ export function robustSolitonCdf(k: number, c = 0.05, delta = 0.05): Float64Arra
     probabilities[i] = 1 / (i * (i - 1));
   }
 
-  // Robust component.
-  const r = c * Math.log(k / delta) * Math.sqrt(k);
+  // Robust component. Math.sqrt is correctly rounded by IEEE-754, so unlike
+  // log it is safe to use directly.
+  const r = c * protocolLog(k / delta) * Math.sqrt(k);
   const pivot = Math.max(1, Math.floor(k / r));
-  for (let i = 1; i < pivot; i += 1) {
+  for (let i = 1; i < pivot && i <= k; i += 1) {
     probabilities[i] += r / (i * k);
   }
   if (pivot <= k) {
-    probabilities[pivot] += (r * Math.log(r / delta)) / k;
+    probabilities[pivot] += (r * protocolLog(r / delta)) / k;
   }
 
   let total = 0;
   for (let i = 1; i <= k; i += 1) total += probabilities[i];
 
-  const cdf = new Float64Array(k + 1);
+  const thresholds = new Uint32Array(k + 1);
   let running = 0;
   for (let i = 1; i <= k; i += 1) {
     running += probabilities[i] / total;
-    cdf[i] = running;
+    // Math.round of a value in [0, 2^32) is exact; the quantisation is the
+    // last floating-point step and everything downstream is integer.
+    const scaled = Math.round(running * 0xffffffff);
+    thresholds[i] = Math.min(0xffffffff, Math.max(thresholds[i - 1], scaled));
   }
-  cdf[k] = 1;
-  return cdf;
+  // Saturate, so no draw can fall past the last degree.
+  thresholds[k] = 0xffffffff;
+
+  return thresholds;
 }
 
-function sampleDegree(rng: () => number, cdf: Float64Array): number {
-  const u = rng() / 0x100000000;
-  for (let i = 1; i < cdf.length; i += 1) {
-    if (u <= cdf[i]) return i;
+/** First degree whose cumulative threshold covers the draw. */
+export function sampleDegree(rng: () => number, thresholds: Uint32Array): number {
+  const u = rng() >>> 0;
+  for (let i = 1; i < thresholds.length; i += 1) {
+    if (u <= thresholds[i]) return i;
   }
-  return cdf.length - 1;
+  return thresholds.length - 1;
 }
 
 /**
- * The block indices a frame with this seed combines.
+ * The block indices a frame with this seed combines, ascending.
  *
- * Both encoder and decoder call this. It must stay bit-for-bit deterministic.
+ * Both encoder and decoder call this, in both languages. It must stay
+ * bit-for-bit deterministic: see spec/PROTOCOL.md and spec/vectors/.
+ *
+ * The result is sorted rather than returned in insertion order, so that
+ * agreement does not depend on two languages iterating a hash set alike.
  */
 export function selectBlocks(
   seed: number,
   numBlocks: number,
-  cdf: Float64Array
+  thresholds: Uint32Array
 ): number[] {
   const rng = makeRng(seed);
-  const degree = Math.min(sampleDegree(rng, cdf), numBlocks);
+  const degree = Math.min(sampleDegree(rng, thresholds), numBlocks);
 
   const picked = new Set<number>();
   // Bounded so a pathological seed cannot spin forever on a small block count.
   let guard = degree * 64 + 64;
   while (picked.size < degree && guard > 0) {
-    picked.add(Math.floor((rng() / 0x100000000) * numBlocks));
+    // Multiply-shift rather than modulo: no bias toward low indices, and the
+    // arithmetic is integer on both sides.
+    picked.add(Math.floor((rng() * numBlocks) / 0x100000000));
     guard -= 1;
   }
   // Degenerate fallback: fill sequentially from wherever we got to.
   for (let i = 0; picked.size < degree; i += 1) picked.add(i % numBlocks);
 
-  return [...picked];
+  return [...picked].sort((a, b) => a - b);
 }
 
 function xorInto(target: Uint8Array, source: Uint8Array): void {
@@ -108,7 +178,7 @@ export class FountainEncoder {
   readonly totalLength: number;
 
   private blocks: Uint8Array[];
-  private cdf: Float64Array;
+  private thresholds: Uint32Array;
 
   constructor(payload: Uint8Array, blockSize: number) {
     if (blockSize < 1) throw new RangeError(`Block size must be positive`);
@@ -126,12 +196,12 @@ export class FountainEncoder {
       this.blocks.push(block);
     }
 
-    this.cdf = robustSolitonCdf(this.numBlocks);
+    this.thresholds = solitonThresholds(this.numBlocks);
   }
 
   /** The coded block for this seed. */
   encode(seed: number): Uint8Array {
-    const indices = selectBlocks(seed, this.numBlocks, this.cdf);
+    const indices = selectBlocks(seed, this.numBlocks, this.thresholds);
     const out = new Uint8Array(this.blockSize);
     for (const index of indices) xorInto(out, this.blocks[index]);
     return out;
@@ -151,7 +221,7 @@ export class FountainDecoder {
   private solved: (Uint8Array | null)[];
   private solvedCount = 0;
   private pending: PendingEquation[] = [];
-  private cdf: Float64Array;
+  private thresholds: Uint32Array;
 
   framesSeen = 0;
 
@@ -160,7 +230,7 @@ export class FountainDecoder {
     this.blockSize = blockSize;
     this.totalLength = totalLength;
     this.solved = new Array<Uint8Array | null>(numBlocks).fill(null);
-    this.cdf = robustSolitonCdf(numBlocks);
+    this.thresholds = solitonThresholds(numBlocks);
   }
 
   get isComplete(): boolean {
@@ -179,7 +249,7 @@ export class FountainDecoder {
     if (payload.length !== this.blockSize) return false;
 
     const equation: PendingEquation = {
-      indices: new Set(selectBlocks(seed, this.numBlocks, this.cdf)),
+      indices: new Set(selectBlocks(seed, this.numBlocks, this.thresholds)),
       data: payload.slice(),
     };
 

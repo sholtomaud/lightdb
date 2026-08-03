@@ -29,3 +29,7 @@ logs/
 # Agent session state
 .claude/
 .crux/
+ios/.build/
+ios/**/.build/
+*.xcuserdatad
+DerivedData/

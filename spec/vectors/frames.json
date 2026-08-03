@@ -1,0 +1,51 @@
+{
+  "description": "Header + payload to exact wire bytes, then base64url.",
+  "protocolVersion": 2,
+  "cases": [
+    {
+      "header": {
+        "protocolVersion": 2,
+        "flags": 0,
+        "sessionId": 1,
+        "totalLength": 8,
+        "blockSize": 8,
+        "numBlocks": 1,
+        "seed": 1,
+        "checksum": 305419896
+      },
+      "payloadHex": "030a11181f262d34",
+      "encodedHex": "4c4402000000000100000008000800010000000112345678030a11181f262d34",
+      "encodedBase64Url": "TEQCAAAAAAEAAAAIAAgAAQAAAAESNFZ4AwoRGB8mLTQ"
+    },
+    {
+      "header": {
+        "protocolVersion": 2,
+        "flags": 0,
+        "sessionId": 3735928559,
+        "totalLength": 100,
+        "blockSize": 32,
+        "numBlocks": 4,
+        "seed": 42,
+        "checksum": 305419896
+      },
+      "payloadHex": "030a11181f262d343b424950575e656c737a81888f969da4abb2b9c0c7ced5dc",
+      "encodedHex": "4c440200deadbeef00000064002000040000002a12345678030a11181f262d343b424950575e656c737a81888f969da4abb2b9c0c7ced5dc",
+      "encodedBase64Url": "TEQCAN6tvu8AAABkACAABAAAACoSNFZ4AwoRGB8mLTQ7QklQV15lbHN6gYiPlp2kq7K5wMfO1dw"
+    },
+    {
+      "header": {
+        "protocolVersion": 2,
+        "flags": 1,
+        "sessionId": 4294967295,
+        "totalLength": 31999,
+        "blockSize": 64,
+        "numBlocks": 500,
+        "seed": 4294967294,
+        "checksum": 305419896
+      },
+      "payloadHex": "030a11181f262d343b424950575e656c737a81888f969da4abb2b9c0c7ced5dce3eaf1f8ff060d141b222930373e454c535a61686f767d848b9299a0a7aeb5bc",
+      "encodedHex": "4c440201ffffffff00007cff004001f4fffffffe12345678030a11181f262d343b424950575e656c737a81888f969da4abb2b9c0c7ced5dce3eaf1f8ff060d141b222930373e454c535a61686f767d848b9299a0a7aeb5bc",
+      "encodedBase64Url": "TEQCAf____8AAHz_AEAB9P____4SNFZ4AwoRGB8mLTQ7QklQV15lbHN6gYiPlp2kq7K5wMfO1dzj6vH4_wYNFBsiKTA3PkVMU1phaG92fYSLkpmgp661vA"
+    }
+  ]
+}

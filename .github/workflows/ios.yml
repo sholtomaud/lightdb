@@ -1,0 +1,59 @@
+name: iOS
+
+# Path-filtered: the web app's CI runs on every push, but macOS runners are
+# slow and there is no reason to spin one up for a CSS change.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ios/**'
+      - 'spec/**'
+      - '.github/workflows/ios.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'ios/**'
+      - 'spec/**'
+      - '.github/workflows/ios.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  conformance:
+    name: LightDBKit conformance
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Show toolchain
+        run: swift --version
+
+      # The important job. LightDBKit is Foundation-only, so this runs without
+      # a simulator and proves the Swift implementation agrees with the
+      # TypeScript one on every vector in spec/vectors/.
+      - name: Run conformance and stream tests
+        working-directory: ios/LightDBKit
+        run: swift test
+
+  app:
+    name: Build iOS app
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Show available simulators
+        run: xcrun simctl list runtimes
+
+      - name: Build for simulator
+        working-directory: ios
+        run: |
+          xcodebuild \
+            -project LightDB.xcodeproj \
+            -scheme LightDB \
+            -destination 'generic/platform=iOS Simulator' \
+            -configuration Debug \
+            CODE_SIGNING_ALLOWED=NO \
+            build

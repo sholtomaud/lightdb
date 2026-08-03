@@ -1,0 +1,91 @@
+{
+  "description": "protocolLog at specified inputs. Values are big-endian binary64 bit patterns.",
+  "ln2Bits": "3fe62e42fefa39ef",
+  "cases": [
+    {
+      "inputBits": "3ff0000000000000",
+      "input": 1,
+      "outputBits": "0000000000000000"
+    },
+    {
+      "inputBits": "3ff8000000000000",
+      "input": 1.5,
+      "outputBits": "3fd9f323ecbf984d"
+    },
+    {
+      "inputBits": "4000000000000000",
+      "input": 2,
+      "outputBits": "3fe62e42fefa39ef"
+    },
+    {
+      "inputBits": "4008000000000000",
+      "input": 3,
+      "outputBits": "3ff193ea7aad030b"
+    },
+    {
+      "inputBits": "4024000000000000",
+      "input": 10,
+      "outputBits": "40026bb1bbb55515"
+    },
+    {
+      "inputBits": "4059000000000000",
+      "input": 100,
+      "outputBits": "40126bb1bbb55515"
+    },
+    {
+      "inputBits": "408f400000000000",
+      "input": 1000,
+      "outputBits": "401ba18a998fffa0"
+    },
+    {
+      "inputBits": "4034000000000000",
+      "input": 20,
+      "outputBits": "4007f7427b73e391"
+    },
+    {
+      "inputBits": "4069000000000000",
+      "input": 200,
+      "outputBits": "4015317a1b949c53"
+    },
+    {
+      "inputBits": "409f400000000000",
+      "input": 2000,
+      "outputBits": "401e6752f96f46de"
+    },
+    {
+      "inputBits": "3fe0000000000000",
+      "input": 0.5,
+      "outputBits": "bfe62e42fefa39ef"
+    },
+    {
+      "inputBits": "3fb999999999999a",
+      "input": 0.1,
+      "outputBits": "c0026bb1bbb55515"
+    },
+    {
+      "inputBits": "3fa999999999999a",
+      "input": 0.05,
+      "outputBits": "c007f7427b73e391"
+    },
+    {
+      "inputBits": "3ff000001ad7f29b",
+      "input": 1.0000001,
+      "outputBits": "3e7ad7f2847b6491"
+    },
+    {
+      "inputBits": "40efffe000000000",
+      "input": 65535,
+      "outputBits": "40262e40fef939ee"
+    },
+    {
+      "inputBits": "41f0000000000000",
+      "input": 4294967296,
+      "outputBits": "40362e42fefa39ef"
+    },
+    {
+      "inputBits": "4005bf0a8b145769",
+      "input": 2.718281828459045,
+      "outputBits": "3ff0000000000000"
+    }
+  ]
+}

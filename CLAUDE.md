@@ -24,6 +24,33 @@ If you catch yourself about to, stop and write the test.
 
 ---
 
+## 1a. There are now two implementations
+
+The web app (TypeScript, `src/`) and an iOS receiver (Swift, `ios/`) both
+implement the same optical protocol. They share no code — they share
+`spec/vectors/`.
+
+**`spec/PROTOCOL.md` is normative.** If you change anything that affects what a
+seed selects, what a frame looks like, or how a payload is encoded:
+
+1. change it in TypeScript,
+2. `make vectors` to regenerate `spec/vectors/`,
+3. bump `PROTOCOL_VERSION` in *both* `src/optical/frame.ts` and
+   `ios/LightDBKit/Sources/LightDBKit/Frame.swift`,
+4. make the Swift side agree,
+
+all in the same commit. Regenerating vectors to make a test pass is a protocol
+change, not a fix.
+
+The specific hazard is floating point. `Math.log` / `Foundation.log` are
+*not* required to be correctly rounded, so the two languages can differ in the
+last ULP — and near a distribution boundary that flips a degree, changes the
+block subset, and breaks every transfer while both suites stay green. That is
+why `protocolLog` exists and why the degree distribution is quantised to
+integer thresholds. Do not replace either with a library call.
+
+---
+
 ## 2. Toolchain — containerised, never the host
 
 **Never run `npm`, `npx` or `node` directly.** There is no host toolchain, and
@@ -38,8 +65,23 @@ inventing one will produce results that do not match CI.
 | `make dev` | Vite dev server on :5173 |
 | `make test` | Playwright e2e |
 | `make build-app` | Vite production build |
+| `make vectors` | Regenerate `spec/vectors/` from the TypeScript implementation |
 
 Node 26 with native TypeScript type stripping. No compile step.
+
+**The container rule applies to the web app.** Xcode cannot run in a container
+— not this one, not any — so the iOS targets are the documented exception and
+run against the host toolchain:
+
+| Command | What it does |
+| --- | --- |
+| `make test-ios` | `swift test` in `ios/LightDBKit` — the conformance suite |
+| `make build-ios` | `xcodebuild` the SwiftUI app for the simulator |
+
+`make build-ios` needs Xcode's **iOS platform component** installed
+(Xcode → Settings → Components), not just the SDK stubs. Without it
+`xcodebuild` reports no eligible destinations for any iOS target, simulator
+included, and the error unhelpfully names a physical device.
 
 `make test-unit` takes seconds. Run it constantly — after every red step, after
 every green step, before every claim that something works.
@@ -178,12 +220,13 @@ CSS framework.
 Change these carelessly and everything still compiles, lints and mostly passes,
 while transfers silently stop working.
 
-**`selectBlocks()` in `src/optical/fountain.ts` must stay bit-for-bit
-deterministic.** Sender and receiver never exchange which blocks a frame
-combines — both derive it from the frame's 32-bit seed. Changing the PRNG, the
-degree distribution, or even the set iteration order breaks every transfer while
-single-sided unit tests keep passing. If you touch it, the round-trip test is
-what protects you.
+**`selectBlocks()` must stay bit-for-bit deterministic — now across two
+languages.** Sender and receiver never exchange which blocks a frame combines;
+both derive it from the frame's 32-bit seed. Changing the PRNG, the degree
+distribution, or the ordering breaks every transfer while single-sided unit
+tests keep passing. `test/conformance.test.ts` and the Swift suite are what
+protect you, and the result is sorted precisely so agreement does not depend on
+two languages iterating a hash set alike.
 
 **The frame header is a wire format.** Change it and bump `PROTOCOL_VERSION` in
 `src/optical/frame.ts`. `decodeFrame` rejects unknown versions — that is what

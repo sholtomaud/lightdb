@@ -5,7 +5,7 @@ import {
   FountainDecoder,
   FountainEncoder,
   makeRng,
-  robustSolitonCdf,
+  solitonThresholds,
   selectBlocks,
 } from '../src/optical/fountain.ts';
 
@@ -61,25 +61,25 @@ test('xorshift32 is deterministic and never sticks at zero', () => {
   assert.notEqual(zero(), first);
 });
 
-test('the soliton distribution is a valid CDF', () => {
+test('the soliton distribution is a valid cumulative table', () => {
   for (const k of [1, 2, 10, 100, 1000]) {
-    const cdf = robustSolitonCdf(k);
-    assert.equal(cdf.length, k + 1);
-    assert.ok(cdf[k] > 0.999 && cdf[k] <= 1.0000001, `k=${k} does not reach 1`);
+    const thresholds = solitonThresholds(k);
+    assert.equal(thresholds.length, k + 1);
+    assert.equal(thresholds[k], 0xffffffff, `k=${k} does not saturate`);
 
     for (let i = 2; i <= k; i += 1) {
-      assert.ok(cdf[i] >= cdf[i - 1], `k=${k} not monotonic at ${i}`);
+      assert.ok(thresholds[i] >= thresholds[i - 1], `k=${k} not monotonic at ${i}`);
     }
   }
 });
 
 test('block selection is deterministic and within range', () => {
   const numBlocks = 40;
-  const cdf = robustSolitonCdf(numBlocks);
+  const thresholds = solitonThresholds(numBlocks);
 
   for (let seed = 1; seed < 200; seed += 1) {
-    const first = selectBlocks(seed, numBlocks, cdf);
-    const second = selectBlocks(seed, numBlocks, cdf);
+    const first = selectBlocks(seed, numBlocks, thresholds);
+    const second = selectBlocks(seed, numBlocks, thresholds);
 
     assert.deepEqual(first, second, `seed ${seed} is not reproducible`);
     assert.ok(first.length >= 1 && first.length <= numBlocks);

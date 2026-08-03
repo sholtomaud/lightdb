@@ -21,7 +21,14 @@
 export const HEADER_SIZE = 24;
 export const MAGIC_0 = 0x4c; // 'L'
 export const MAGIC_1 = 0x44; // 'D'
-export const PROTOCOL_VERSION = 1;
+/**
+ * Version 2 changed the degree distribution from a float CDF to integer
+ * thresholds, and `selectBlocks` now returns ascending order. Neither touches
+ * the header layout, but both change which blocks a given seed selects -- so a
+ * v1 sender and a v2 receiver would agree on every byte of the header and
+ * disagree about the contents of every frame. That is a wire change.
+ */
+export const PROTOCOL_VERSION = 2;
 
 /** Payload was compressed with gzip before block splitting. */
 export const FLAG_GZIP = 1 << 0;
