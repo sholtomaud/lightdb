@@ -58,8 +58,34 @@ router.navigate(getInitialAppPath());
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     const base = (window as unknown as { BOBA_BASE_URL: string }).BOBA_BASE_URL;
-    navigator.serviceWorker.register(`${base}sw.js`, { scope: base }).catch((error) => {
-      console.warn('Service worker registration failed; app will not work offline', error);
-    });
+
+    navigator.serviceWorker
+      .register(`${base}sw.js`, {
+        scope: base,
+        // Never let the HTTP cache hand us a stale worker. A bad cached worker
+        // is the one failure that cannot fix itself.
+        updateViaCache: 'none',
+      })
+      .then((registration) => {
+        // Deploys land while tabs are open; check rather than wait for the
+        // browser's own 24-hour cadence.
+        void registration.update();
+      })
+      .catch((error) => {
+        console.warn('Service worker registration failed; app will not work offline', error);
+      });
+  });
+
+  // A new worker taking control means the assets under us just changed, so the
+  // page must reload to match. But on a first visit clients.claim() also fires
+  // this with nothing stale to escape -- reloading there is a spurious refresh
+  // for every new visitor. Only an *replacement* controller warrants it.
+  const hadController = Boolean(navigator.serviceWorker.controller);
+  let reloading = false;
+
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadController || reloading) return;
+    reloading = true;
+    window.location.reload();
   });
 }
