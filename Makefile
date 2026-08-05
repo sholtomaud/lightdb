@@ -84,3 +84,14 @@ run-ios: sim-boot ## Build, install and launch the app on the simulator
 	xcrun simctl launch booted $(BUNDLE_ID)
 
 .PHONY: ios-platform sim-boot run-ios
+
+ios-doctor: ## Report Xcode SDKs, runtimes and whether iOS destinations are eligible
+	@echo "--- Xcode ---"; xcodebuild -version | head -2
+	@echo; echo "--- iOS SDKs ---"; xcodebuild -showsdks 2>/dev/null | sed -n "/iOS/,/^$$/p" | head -8
+	@echo; echo "--- simulator runtimes ---"; xcrun simctl list runtimes 2>/dev/null | tail -n +2
+	@echo; echo "--- iPhone 12 devices ---"; xcrun simctl list devices available 2>/dev/null | grep -iE "iPhone 12|^-- iOS" || echo "  none"
+	@echo; echo "--- destinations (must show ELIGIBLE simulators) ---"
+	@cd ios && xcodebuild -project LightDB.xcodeproj -scheme LightDB -showdestinations 2>&1 | grep -A20 -iE "available destinations|ineligible" || true
+	@echo; echo "If only ineligible destinations appear, run: make ios-platform"
+
+.PHONY: ios-doctor
