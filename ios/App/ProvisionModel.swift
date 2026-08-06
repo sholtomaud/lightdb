@@ -37,6 +37,10 @@ final class ProvisionModel {
     private(set) var status: Status = .idle
     private(set) var frameImage: CGImage?
 
+    /// Stored rather than derived from the timer, so it can drive the
+    /// presentation of the transmit sheet.
+    private(set) var isTransmitting = false
+
     /// Frames per second. Above ~15 most phone cameras start dropping frames.
     var fps: Double = 12
 
@@ -49,7 +53,6 @@ final class ProvisionModel {
         self.state = state
     }
 
-    var isTransmitting: Bool { timer != nil }
     var canTransmit: Bool { config.filledCount > 0 }
 
     /// Commit the profile to the local log, then stream it.
@@ -82,6 +85,7 @@ final class ProvisionModel {
                 Task { @MainActor in self?.tick() }
             }
             self.timer = timer
+            isTransmitting = true
             tick()
         } catch {
             status = .failed("Could not start: \(error)")
@@ -93,6 +97,7 @@ final class ProvisionModel {
         timer = nil
         transmitter = nil
         frameImage = nil
+        isTransmitting = false
         status = .idle
     }
 

@@ -24,6 +24,11 @@ struct ProvisionView: View {
                 }
             }
             .scrollDismissesKeyboard(.interactively)
+            .sheet(isPresented: transmitBinding) {
+                if let model {
+                    TransmitSheet(model: model)
+                }
+            }
         }
         .task {
             if model == nil {
@@ -34,15 +39,22 @@ struct ProvisionView: View {
         }
     }
 
+    /// Dismissing the sheet by any route — button, drag, swipe — stops the
+    /// stream. There is no state where the sheet is gone but the timer runs.
+    private var transmitBinding: Binding<Bool> {
+        Binding(
+            get: { model?.isTransmitting ?? false },
+            set: { presented in
+                if !presented { model?.stop() }
+            }
+        )
+    }
+
     @ViewBuilder
     private func content(_ model: ProvisionModel) -> some View {
         @Bindable var model = model
 
         VStack(spacing: Theme.Space.loose) {
-            if model.isTransmitting {
-                transmitPanel(model)
-            }
-
             profileCard(model)
 
             ForEach(model.config.sections, id: \.self) { section in
@@ -52,21 +64,6 @@ struct ProvisionView: View {
             actions(model)
         }
         .padding(Theme.Space.loose)
-    }
-
-    // MARK: - transmission
-
-    private func transmitPanel(_ model: ProvisionModel) -> some View {
-        Card {
-            VStack(spacing: Theme.Space.normal) {
-                QRFrameView(image: model.frameImage)
-                StatusRow(tone: model.status.tone, message: model.status.message)
-                Text("Hold steady until the other device reports it is done.")
-                    .font(.caption)
-                    .foregroundStyle(Theme.textSecondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-        }
     }
 
     // MARK: - form
@@ -167,22 +164,24 @@ struct ProvisionView: View {
 
     private func actions(_ model: ProvisionModel) -> some View {
         VStack(spacing: Theme.Space.normal) {
-            if model.isTransmitting {
-                Button("Stop transmitting") { model.stop() }
-                    .buttonStyle(FluentSecondaryButton())
-            } else {
-                Button("Transmit settings") { model.transmit() }
-                    .buttonStyle(FluentPrimaryButton())
-                    .disabled(!model.canTransmit)
+            Button("Transmit settings") { model.transmit() }
+                .buttonStyle(FluentPrimaryButton())
+                .disabled(!model.canTransmit)
 
-                if !model.canTransmit {
-                    Text("Fill in at least one setting to transmit.")
-                        .font(.caption)
-                        .foregroundStyle(Theme.textSecondary)
-                }
+            if case .failed(let reason) = model.status {
+                StatusRow(tone: .bad, message: reason)
+            } else if !model.canTransmit {
+                Text("Fill in at least one setting to transmit.")
+                    .font(.caption)
+                    .foregroundStyle(Theme.textSecondary)
+            } else {
+                Text("\(model.config.filledCount) setting\(model.config.filledCount == 1 ? "" : "s") ready to send.")
+                    .font(.caption)
+                    .foregroundStyle(Theme.textSecondary)
             }
         }
         .padding(.top, Theme.Space.tight)
+        .padding(.bottom, Theme.Space.section)
     }
 }
 
