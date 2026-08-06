@@ -45,6 +45,9 @@ final class ReceiveModel {
     private(set) var progress: Double = 0
     private(set) var framesSeen = 0
 
+    /// One lock-on tick per session, not one per frame.
+    private var hasSignalledLockOn = false
+
     let scanner = CameraScanner()
 
     private let state: AppState
@@ -62,6 +65,11 @@ final class ReceiveModel {
 
     func start() async {
         status = .scanning
+        hasSignalledLockOn = false
+
+        // Warm the Taptic Engine now, so the first buzz is not late.
+        Haptics.prepare()
+
         await scanner.start()
 
         switch scanner.state {
@@ -91,12 +99,22 @@ final class ReceiveModel {
             status = .receiving(
                 blocks: update.blocksSolved, of: update.numBlocks, frames: update.framesSeen)
 
+            // The camera is aimed correctly. Worth knowing without looking,
+            // since the phone's own screen is facing away from you.
+            if !hasSignalledLockOn {
+                hasSignalledLockOn = true
+                Haptics.lockedOn()
+            }
+
         case .checksumMismatch:
             progress = 0
+            hasSignalledLockOn = false
             status = .failed("Checksum mismatch. Restarting.")
+            Haptics.failed()
 
         case .completed(let payload, let header):
             progress = 1
+            hasSignalledLockOn = false
             merge(payload: payload, header: header)
         }
     }
@@ -107,8 +125,14 @@ final class ReceiveModel {
             let message = try SyncMessage.decode(payload, gzipped: gzipped)
             let applied = state.merge(message)
             status = .merged(ops: applied, peer: message.peer)
+
+            // The signal the user is actually waiting for: they can lower the
+            // phone now. Fires even when nothing was new, because "already up
+            // to date" is just as much an answer as "merged 12 records".
+            Haptics.finished()
         } catch {
             status = .failed("Could not merge: \(error)")
+            Haptics.failed()
         }
     }
 }
