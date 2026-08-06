@@ -114,7 +114,11 @@ ios-doctor: ## Report Xcode SDKs, runtimes and whether iOS destinations are elig
 # fragile, and matching /available/ would also match "unavailable". Taking the
 # name column keeps single-spaced device names like "My iPhone" intact.
 DEVICE      ?= $(shell xcrun devicectl list devices 2>/dev/null | awk 'NR>2 && NF {sub(/  +.*/,""); print; exit}')
-TEAM_ID     ?= $(shell security find-identity -v -p codesigning 2>/dev/null | grep -oE '\([A-Z0-9]{10}\)' | head -1 | tr -d '()')
+# The Team ID lives in the certificate's organizationalUnitName. The code in
+# parentheses in the common name looks identical in shape but is the
+# certificate's own identifier -- passing that yields
+# "No Account for Team ..." from a team that does not exist.
+TEAM_ID     ?= $(shell security find-certificate -a -c "Apple Development" -p 2>/dev/null | openssl x509 -noout -subject -nameopt multiline 2>/dev/null | sed -n 's/.*organizationalUnitName *= *//p' | head -1)
 APP_BUNDLE  := ios/.build/xcode/Build/Products/Debug-iphoneos/LightDB.app
 BUILD_LOG   := ios/.build/device-build.log
 
@@ -156,19 +160,35 @@ phone: ## Build, install and launch on your iPhone. One command, no arguments.
 	echo "→ installing"; \
 	xcrun devicectl device install app --device "$(DEVICE)" $(APP_BUNDLE) >/dev/null; \
 	echo "→ launching"; \
-	xcrun devicectl device process launch --device "$(DEVICE)" \
-		--terminate-existing $(BUNDLE_ID) >/dev/null; \
-	echo "✓ lightdb is running on $(DEVICE)"; \
-	echo "  If it refuses to open: iPhone -> Settings -> General ->"; \
-	echo "  VPN & Device Management -> trust your developer certificate."
+	if ! xcrun devicectl device process launch --device "$(DEVICE)" \
+		--terminate-existing $(BUNDLE_ID) >/dev/null 2>&1; then \
+		echo ""; \
+		echo "  The app installed, but iOS will not launch it yet."; \
+		echo "  A developer certificate has to be trusted on the device by hand:"; \
+		echo ""; \
+		echo "    Settings > General > VPN & Device Management"; \
+		echo "      > DEVELOPER APP > your Apple ID > Trust"; \
+		echo ""; \
+		echo "  If that entry is missing, turn on Developer Mode first:"; \
+		echo ""; \
+		echo "    Settings > Privacy & Security > Developer Mode > On"; \
+		echo "    (the phone restarts)"; \
+		echo ""; \
+		echo "  Then run: make launch-device      (no rebuild needed)"; \
+		exit 1; \
+	fi; \
+	echo "✓ lightdb is running on $(DEVICE)"
 
 devices: ## List paired physical devices
 	xcrun devicectl list devices
 
-team: ## List code signing identities, to find your TEAM_ID
+team: ## Show code signing identities and the detected TEAM_ID
 	@security find-identity -v -p codesigning || true
 	@echo
-	@echo "The 10-character code in parentheses after the name is your TEAM_ID."
+	@echo "Detected TEAM_ID: $(TEAM_ID)"
+	@echo
+	@echo "Read from the certificate's organizationalUnitName, not from the code"
+	@echo "in parentheses above -- that one is the certificate's own identifier."
 
 device-pair: ## Pair a device that is plugged in but not yet trusted
 	xcrun devicectl manage pair --device $(DEVICE)
