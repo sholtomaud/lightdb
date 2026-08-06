@@ -2,97 +2,103 @@ import AVFoundation
 import SwiftUI
 
 struct ReceiveView: View {
-    @State private var model = ReceiveModel()
+    @Environment(AppState.self) private var state
+    @State private var model: ReceiveModel?
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 16) {
-                viewfinder
-                progressBar
-                Text(model.status.message)
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
-                controls
-                recordList
-            }
-            .padding()
-            .navigationTitle("lightdb")
-            .navigationBarTitleDisplayMode(.inline)
-        }
-        .tint(Color(red: 0.2, green: 1, blue: 0.2))
-    }
-
-    private var viewfinder: some View {
-        ZStack {
-            CameraPreview(session: model.scanner.captureSession)
-                .aspectRatio(1, contentMode: .fit)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
-
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(Color(red: 0.12, green: 0.62, blue: 0.12), lineWidth: 2)
-                .padding(28)
-                .allowsHitTesting(false)
-        }
-    }
-
-    private var progressBar: some View {
-        ProgressView(value: model.progress)
-            .tint(Color(red: 0.2, green: 1, blue: 0.2))
-    }
-
-    private var controls: some View {
-        HStack(spacing: 12) {
-            Button("start camera") { Task { await model.start() } }
-                .buttonStyle(.borderedProminent)
-                .disabled(model.scanner.state == .running)
-
-            Button("stop") { model.stop() }
-                .buttonStyle(.bordered)
-                .disabled(model.scanner.state != .running)
-        }
-        .monospaced()
-    }
-
-    private var recordList: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text("records (\(model.recordCount))")
-                    .font(.headline)
-                    .monospaced()
-                Spacer()
-                Text(model.actorId.prefix(8))
-                    .font(.caption)
-                    .monospaced()
-                    .foregroundStyle(.secondary)
-            }
-
-            if model.records.isEmpty {
-                Text("Nothing yet. Receive a sync from the web app.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            } else {
-                List(model.records, id: \.key) { record in
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(record.key)
-                            .font(.caption)
-                            .monospaced()
-                            .foregroundStyle(Color(red: 0.2, green: 1, blue: 0.2))
-                        Text(record.value)
-                            .font(.callout)
-                    }
+            ScrollView {
+                if let model {
+                    content(model)
                 }
-                .listStyle(.plain)
+            }
+            .background(Theme.canvas)
+            .navigationTitle("Receive")
+            .navigationBarTitleDisplayMode(.large)
+        }
+        .task {
+            if model == nil { model = ReceiveModel(state: state) }
+        }
+        .onDisappear { model?.stop() }
+    }
+
+    private func content(_ model: ReceiveModel) -> some View {
+        VStack(spacing: Theme.Space.loose) {
+            Card {
+                VStack(spacing: Theme.Space.normal) {
+                    viewfinder(model)
+                    if model.progress > 0 {
+                        progress(model)
+                    }
+                    StatusRow(tone: model.status.tone, message: model.status.message)
+                }
+            }
+
+            controls(model)
+        }
+        .padding(Theme.Space.loose)
+    }
+
+    private func viewfinder(_ model: ReceiveModel) -> some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: Theme.Radius.card)
+                .fill(Color.black)
+
+            CameraPreview(session: model.scanner.captureSession)
+                .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card))
+
+            if !model.isScanning {
+                VStack(spacing: Theme.Space.tight) {
+                    Image(systemName: "camera.viewfinder")
+                        .font(.system(size: 44))
+                    Text("Camera off")
+                        .font(.footnote)
+                }
+                .foregroundStyle(Color(white: 0.55))
+            } else {
+                // A frame guide, not a crop: decoding uses the whole image.
+                RoundedRectangle(cornerRadius: Theme.Radius.control)
+                    .stroke(Theme.accent.opacity(0.9), lineWidth: 2)
+                    .padding(28)
+                    .allowsHitTesting(false)
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .aspectRatio(1, contentMode: .fit)
+        .overlay(
+            RoundedRectangle(cornerRadius: Theme.Radius.card)
+                .stroke(Theme.stroke, lineWidth: 1)
+        )
+    }
+
+    private func progress(_ model: ReceiveModel) -> some View {
+        VStack(spacing: 6) {
+            ProgressView(value: model.progress)
+                .tint(Theme.accent)
+            HStack {
+                Text("\(Int(model.progress * 100))% recovered")
+                Spacer()
+                Text("\(model.framesSeen) frames")
+            }
+            .font(.caption)
+            .foregroundStyle(Theme.textSecondary)
+        }
+    }
+
+    private func controls(_ model: ReceiveModel) -> some View {
+        VStack(spacing: Theme.Space.normal) {
+            if model.isScanning {
+                Button("Stop camera") { model.stop() }
+                    .buttonStyle(FluentSecondaryButton())
+            } else {
+                Button("Start camera") { Task { await model.start() } }
+                    .buttonStyle(FluentPrimaryButton())
+            }
+        }
     }
 }
 
 /// Thin UIKit bridge for the capture preview layer.
-private struct CameraPreview: UIViewRepresentable {
+struct CameraPreview: UIViewRepresentable {
     let session: AVCaptureSession
 
     func makeUIView(context: Context) -> PreviewView {
@@ -115,5 +121,5 @@ private struct CameraPreview: UIViewRepresentable {
 
 #Preview {
     ReceiveView()
-        .preferredColorScheme(.dark)
+        .environment(AppState())
 }

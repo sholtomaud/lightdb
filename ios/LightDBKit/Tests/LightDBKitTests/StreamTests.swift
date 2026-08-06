@@ -123,3 +123,61 @@ private func bytes(fromHex string: String) -> [UInt8] {
     let payload = try #require(decoder.result())
     #expect(payload == bytes(fromHex: testCase.payloadHex))
 }
+
+/// The encoder side of interop.
+///
+/// `streams.json` holds frames the *TypeScript* sender actually emitted. Every
+/// one carries its seed in the header, so this re-encodes each from the same
+/// payload and demands byte-identical output. If the Swift encoder and the
+/// browser decoder ever disagree, this fails here rather than on a phone.
+@Test func swiftEncoderReproducesTypeScriptFrames() throws {
+    let vectors = try Vectors.load("streams.json", as: StreamVectors.self)
+
+    for streamCase in vectors.cases {
+        let payload = bytes(fromHex: streamCase.payloadHex)
+        #expect(payload.count == streamCase.totalLength)
+
+        let encoder = try FountainEncoder(
+            payload: payload, blockSize: streamCase.blockSize
+        )
+        #expect(encoder.numBlocks == streamCase.numBlocks)
+
+        for text in streamCase.frames {
+            let recordedBytes = try #require(Base64URL.decode(text))
+            let recorded = try #require(Frame.decode(recordedBytes))
+
+            // Same seed, same payload: the coded block must match exactly.
+            let reencoded = encoder.encode(seed: recorded.header.seed)
+            #expect(
+                reencoded == recorded.payload,
+                "block mismatch at seed \(recorded.header.seed) in \(streamCase.totalLength)B stream"
+            )
+
+            // And the whole frame, header and base64url included.
+            let rebuilt = Frame.encode(header: recorded.header, payload: reencoded)
+            #expect(rebuilt == recordedBytes)
+            #expect(Base64URL.encode(rebuilt) == text)
+        }
+    }
+}
+
+/// A transmitter's own output must survive its own receiver.
+@Test func transmitterOutputRoundTripsThroughReceiver() throws {
+    let payload = (0..<4096).map { UInt8(($0 &* 37 &+ 11) & 0xFF) }
+    let transmitter = try OpticalTransmitter(payload: payload, blockSize: 128)
+    let receiver = OpticalReceiver()
+
+    var completed: [UInt8]?
+    for _ in 0..<(transmitter.numBlocks * 40 + 400) {
+        if case .completed(let recovered, let header) = receiver.ingest(
+            text: transmitter.nextFrame()
+        ) {
+            #expect(header.checksum == CRC32.compute(recovered))
+            completed = recovered
+            break
+        }
+    }
+
+    #expect(completed == payload)
+    #expect(transmitter.passes < 3, "overhead \(transmitter.passes)x is implausible")
+}

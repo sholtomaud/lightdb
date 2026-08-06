@@ -76,3 +76,48 @@ Do not edit the constants here by hand. `spec/PROTOCOL.md` is normative;
 regenerate the vectors from the TypeScript implementation with `make vectors`,
 bump `PROTOCOL_VERSION` on both sides in the same commit, and let the
 conformance suites tell you whether the two still agree.
+
+## Running on a real device
+
+The simulator has no usable camera and cannot display to another device's
+camera, so neither half of this app can be demonstrated there. A physical
+phone is the only real test.
+
+### First time
+
+1. Open `ios/LightDB.xcodeproj` in Xcode.
+2. Select the **LightDB** target → *Signing & Capabilities*.
+3. Tick **Automatically manage signing** and pick your Apple ID under *Team*.
+   A free personal team is enough; paid membership is not required.
+4. Change the bundle identifier to something unique to you —
+   `dev.lightdb.LightDB` will collide with anyone else who tries this. Something
+   like `com.yourname.lightdb` is fine.
+5. Plug the phone in, choose it as the destination, and run.
+6. On the phone: *Settings → General → VPN & Device Management* → trust your
+   developer certificate. The app will refuse to launch until you do.
+
+Free personal teams expire after **7 days**, after which the app stops opening
+and needs rebuilding from Xcode. A paid account extends that to a year.
+
+### From the terminal, after the first run
+
+```sh
+xcrun devicectl list devices                  # find the device id
+make run-device DEVICE_ID=<id>
+```
+
+Wireless install works once the phone has been paired over USB and *Connect via
+network* is ticked in Xcode's Devices window.
+
+### What to actually test
+
+The provisioning path is the interesting one, because it exercises the Swift
+*encoder* against the browser's decoder:
+
+1. Open the web app on a laptop and go to **receive**.
+2. On the phone, fill in a profile under **Provision** and hit transmit.
+3. The laptop should show the `cfg/<profile>/...` records arriving.
+
+That direction is proven byte-for-byte in `swiftEncoderReproducesTypeScriptFrames`,
+but the optics are not — focus, glare, refresh-rate beating and rolling shutter
+only show up on real hardware.

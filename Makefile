@@ -95,3 +95,19 @@ ios-doctor: ## Report Xcode SDKs, runtimes and whether iOS destinations are elig
 	@echo; echo "If only ineligible destinations appear, run: make ios-platform"
 
 .PHONY: ios-doctor
+
+DEVICE_ID ?=
+
+run-device: ## Build and run on a physical device (make run-device DEVICE_ID=<id>)
+	@test -n "$(DEVICE_ID)" || (echo "DEVICE_ID required. Run: xcrun devicectl list devices"; exit 1)
+	cd ios && xcodebuild -project LightDB.xcodeproj -scheme LightDB \
+		-destination "id=$(DEVICE_ID)" -configuration Debug \
+		-derivedDataPath .build/xcode build
+	xcrun devicectl device install app --device $(DEVICE_ID) \
+		ios/.build/xcode/Build/Products/Debug-iphoneos/LightDB.app
+	xcrun devicectl device process launch --device $(DEVICE_ID) $(BUNDLE_ID)
+
+devices: ## List connected physical devices
+	xcrun devicectl list devices
+
+.PHONY: run-device devices
