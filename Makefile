@@ -107,9 +107,56 @@ ios-doctor: ## Report Xcode SDKs, runtimes and whether iOS destinations are elig
 # must be signed -- CODE_SIGNING_ALLOWED=NO produces a bundle iOS will refuse
 # to install. `make team` lists the identities you have.
 
-DEVICE      ?= iPhoney
-TEAM_ID     ?=
+# Both are auto-detected, and both can be overridden:
+#   make phone DEVICE="My iPhone" TEAM_ID=ABCDE12345
+DEVICE      ?= $(shell xcrun devicectl list devices 2>/dev/null | awk '/available/ {print $$1; exit}')
+TEAM_ID     ?= $(shell security find-identity -v -p codesigning 2>/dev/null | grep -oE '\([A-Z0-9]{10}\)' | head -1 | tr -d '()')
 APP_BUNDLE  := ios/.build/xcode/Build/Products/Debug-iphoneos/LightDB.app
+BUILD_LOG   := ios/.build/device-build.log
+
+phone: ## Build, install and launch on your iPhone. One command, no arguments.
+	@set -e; \
+	if [ -z "$(DEVICE)" ]; then \
+		echo "✗ No paired device found."; \
+		echo "  Plug the phone in over USB-C, unlock it, and tap Trust if asked."; \
+		echo "  Then check with: make devices"; \
+		exit 1; \
+	fi; \
+	if cd ios && xcodebuild -project LightDB.xcodeproj -scheme LightDB \
+		-showdestinations 2>&1 | grep -q "is not installed"; then \
+		echo "✗ Xcode's iOS platform component is not installed."; \
+		echo "  This blocks every iOS build, device and simulator alike."; \
+		echo "  Fix with: make ios-platform   (large, one time)"; \
+		exit 1; \
+	fi; \
+	cd $(CURDIR); \
+	if [ -z "$(TEAM_ID)" ]; then \
+		echo "✗ No code signing identity on this machine."; \
+		echo "  A device build must be signed, and only Xcode can create the first"; \
+		echo "  certificate:  Xcode -> Settings -> Accounts -> + -> your Apple ID"; \
+		echo "  Then check with: make team"; \
+		exit 1; \
+	fi; \
+	echo "→ device $(DEVICE) · team $(TEAM_ID)"; \
+	mkdir -p ios/.build; \
+	echo "→ building (log: $(BUILD_LOG))"; \
+	cd ios && xcodebuild -project LightDB.xcodeproj -scheme LightDB \
+		-destination "platform=iOS,name=$(DEVICE)" -configuration Debug \
+		-derivedDataPath .build/xcode \
+		DEVELOPMENT_TEAM=$(TEAM_ID) -allowProvisioningUpdates \
+		build > device-build.log 2>&1 \
+		|| { mv device-build.log .build/ 2>/dev/null; \
+		     echo "✗ build failed:"; tail -25 $(CURDIR)/$(BUILD_LOG); exit 1; }; \
+	mv device-build.log .build/ 2>/dev/null || true; \
+	cd $(CURDIR); \
+	echo "→ installing"; \
+	xcrun devicectl device install app --device "$(DEVICE)" $(APP_BUNDLE) >/dev/null; \
+	echo "→ launching"; \
+	xcrun devicectl device process launch --device "$(DEVICE)" \
+		--terminate-existing $(BUNDLE_ID) >/dev/null; \
+	echo "✓ lightdb is running on $(DEVICE)"; \
+	echo "  If it refuses to open: iPhone -> Settings -> General ->"; \
+	echo "  VPN & Device Management -> trust your developer certificate."
 
 devices: ## List paired physical devices
 	xcrun devicectl list devices
@@ -144,4 +191,4 @@ console-device: ## Launch attached to the console, streaming stdout to the termi
 	xcrun devicectl device process launch --device $(DEVICE) \
 		--terminate-existing --console $(BUNDLE_ID)
 
-.PHONY: devices team device-pair build-device install-device launch-device run-device console-device
+.PHONY: phone devices team device-pair build-device install-device launch-device run-device console-device
