@@ -1,66 +1,74 @@
 import { expect, test } from '@playwright/test';
 
-test('the shell boots and routes', async ({ page }) => {
+test('the single page renders both panels', async ({ page }) => {
   await page.goto('/');
 
-  await expect(page.locator('app-nav')).toBeVisible();
+  await expect(page.locator('sync-page')).toBeVisible();
   await expect(page.locator('h1')).toContainText('lightdb');
 
-  await page.click('a[href="/db"]');
-  await expect(page.locator('db-page')).toBeVisible();
-
-  await page.click('a[href="/send"]');
-  await expect(page.locator('send-page')).toBeVisible();
-
-  await page.click('a[href="/receive"]');
-  await expect(page.locator('receive-page')).toBeVisible();
+  // The whole point of the layout: link and database visible together.
+  await expect(page.locator('#qr-canvas')).toBeVisible();
+  await expect(page.locator('#camera')).toBeAttached();
+  await expect(page.locator('.database')).toBeVisible();
 });
 
 test('records persist across a reload', async ({ page }) => {
-  await page.goto('/db');
+  await page.goto('/');
 
   await page.fill('#key-input', 'colour');
   await page.fill('#value-input', 'green');
-  await page.click('#set-btn');
+  await page.click('#add-btn');
 
-  await expect(page.locator('.record-key')).toHaveText('colour');
-  await expect(page.locator('.record-value')).toHaveText('green');
+  await expect(page.locator('td.key')).toHaveText('colour');
+  await expect(page.locator('td.value')).toHaveText('green');
 
   await page.reload();
-  await expect(page.locator('.record-key')).toHaveText('colour');
+  await expect(page.locator('td.key')).toHaveText('colour');
+});
+
+test('records can be deleted', async ({ page }) => {
+  await page.goto('/');
+
+  await page.fill('#key-input', 'temporary');
+  await page.fill('#value-input', 'value');
+  await page.click('#add-btn');
+  await expect(page.locator('td.key')).toHaveText('temporary');
+
+  await page.click('.delete-record');
+  await expect(page.locator('[data-empty]')).toBeVisible();
 });
 
 test('record values are escaped, not interpreted as markup', async ({ page }) => {
-  await page.goto('/db');
+  await page.goto('/');
 
   await page.fill('#key-input', 'xss');
   await page.fill('#value-input', '<img src=x onerror="window.__pwned=1">');
-  await page.click('#set-btn');
+  await page.click('#add-btn');
 
-  await expect(page.locator('.record-value')).toContainText('<img');
+  await expect(page.locator('td.value')).toContainText('<img');
   expect(await page.evaluate(() => window.__pwned)).toBeUndefined();
-  expect(await page.locator('.record-value img').count()).toBe(0);
+  expect(await page.locator('td.value img').count()).toBe(0);
 });
 
-test('the transmitter paints QR frames onto the canvas', async ({ page }) => {
-  await page.goto('/db');
+test('one button starts both directions at once', async ({ page }) => {
+  await page.goto('/');
+
   await page.fill('#key-input', 'payload');
   await page.fill('#value-input', 'something worth syncing');
-  await page.click('#set-btn');
+  await page.click('#add-btn');
 
-  await page.click('a[href="/send"]');
-  await page.click('#start-btn');
+  await expect(page.locator('#sync-btn')).toHaveText('Start sync');
+  await page.click('#sync-btn');
+  await expect(page.locator('#sync-btn')).toHaveText('Stop sync');
 
-  await expect(page.locator('#stop-btn')).toBeEnabled();
-
-  // Frame counter must actually advance, not just render once.
+  // Transmitting: the frame counter must advance, not just paint once.
   await expect
-    .poll(async () => Number(await page.locator('[data-frames]').textContent()), {
-      timeout: 5000,
+    .poll(async () => Number(await page.locator('[data-tx-frames]').textContent()), {
+      timeout: 10000,
     })
     .toBeGreaterThan(3);
 
-  // And the canvas must be non-blank.
+  // And the canvas must carry an actual symbol.
   const hasDarkPixels = await page.evaluate(() => {
     const canvas = document.querySelector('#qr-canvas');
     const ctx = canvas.getContext('2d');
@@ -72,17 +80,11 @@ test('the transmitter paints QR frames onto the canvas', async ({ page }) => {
   });
   expect(hasDarkPixels).toBe(true);
 
-  await page.click('#stop-btn');
-  await expect(page.locator('#start-btn')).toBeEnabled();
-});
+  // Receiving at the same time: the fake camera device is granted in config.
+  await expect(page.locator('.frame.dark')).toHaveClass(/running/, { timeout: 10000 });
 
-test('the receive page enables the camera once a decoder is ready', async ({ page }) => {
-  await page.goto('/receive');
-
-  // Chromium has BarcodeDetector, so this resolves without loading the wasm.
-  // On Safari/iOS/Firefox/Brave the same assertion holds once the wasm lands.
-  await expect(page.locator('#start-btn')).toBeEnabled({ timeout: 15000 });
-  await expect(page.locator('[data-status]')).toHaveText('Idle.');
+  await page.click('#sync-btn');
+  await expect(page.locator('#sync-btn')).toHaveText('Start sync');
 });
 
 test('nothing is ever fetched from a CDN', async ({ page }) => {
@@ -94,8 +96,9 @@ test('nothing is ever fetched from a CDN', async ({ page }) => {
     }
   });
 
-  await page.goto('/receive');
-  await page.waitForTimeout(2000);
+  await page.goto('/');
+  await page.click('#sync-btn');
+  await page.waitForTimeout(2500);
 
   // The wasm decoder must come from our own origin: the CSP forbids anything
   // else, and an app that only works online is not this app.

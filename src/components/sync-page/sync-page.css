@@ -1,0 +1,287 @@
+:host {
+  display: block;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: var(--space-loose);
+}
+
+/* -------------------------------------------------------------------- bar */
+
+:host .bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-loose);
+  margin-bottom: var(--space);
+  flex-wrap: wrap;
+}
+
+:host .brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-tight);
+}
+
+/* A miniature finder pattern, echoing the app icon. */
+:host .mark {
+  width: 18px;
+  height: 18px;
+  border: 3px solid var(--accent);
+  border-radius: 2px;
+  position: relative;
+  flex: none;
+}
+
+:host .mark::after {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  background: var(--accent);
+  border-radius: 1px;
+}
+
+:host .bar-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space);
+}
+
+:host .replica {
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+}
+
+:host [data-status] {
+  margin-bottom: var(--space-loose);
+}
+
+/* ----------------------------------------------------------------- panels */
+
+:host .panels {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-loose);
+  align-items: start;
+}
+
+/* One column once side-by-side stops being readable. */
+@media (max-width: 900px) {
+  :host .panels {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+:host .card {
+  padding: var(--space-loose);
+}
+
+:host .panel-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space);
+  margin-bottom: var(--space);
+}
+
+/* ----------------------------------------------------------------- optics */
+
+:host .optics {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space);
+}
+
+@media (max-width: 520px) {
+  :host .optics {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+:host .optic {
+  min-width: 0;
+}
+
+:host .optic figcaption {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
+:host .frame {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: var(--radius-control);
+  border: 1px solid var(--stroke);
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+}
+
+/* The quiet zone is part of the symbol, so this stays white in both themes. */
+:host .frame.light {
+  background: #ffffff;
+}
+
+:host .frame.dark {
+  background: #000000;
+}
+
+:host canvas,
+:host video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Sharp module edges; smoothing directly costs decode rate at the far end. */
+:host canvas {
+  image-rendering: pixelated;
+  object-fit: contain;
+}
+
+:host .placeholder {
+  position: absolute;
+  font-size: 0.75rem;
+  color: #9a9a9a;
+  pointer-events: none;
+}
+
+:host .frame.running .placeholder {
+  display: none;
+}
+
+:host .progress {
+  margin-top: var(--space-tight);
+}
+
+:host .metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+  margin-top: var(--space-tight);
+}
+
+:host .metrics dt {
+  font-size: 0.625rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+}
+
+:host .metrics dd {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+:host .hint {
+  margin-top: var(--space);
+  padding-top: var(--space);
+  border-top: 1px solid var(--stroke);
+}
+
+/* --------------------------------------------------------------- database */
+
+:host .add-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr) auto;
+  gap: var(--space-tight);
+  margin-bottom: var(--space);
+}
+
+:host .records {
+  max-height: 460px;
+  overflow-y: auto;
+  border: 1px solid var(--stroke);
+  border-radius: var(--radius-control);
+}
+
+:host table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+}
+
+:host thead th {
+  position: sticky;
+  top: 0;
+  background: var(--layer-alt);
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--stroke);
+}
+
+:host tbody td {
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--stroke);
+  vertical-align: top;
+  word-break: break-word;
+}
+
+:host tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* A row that just arrived over the link, so the sync is visible as it lands. */
+:host tbody tr.arrived {
+  animation: arrive 1.2s ease-out;
+}
+
+@keyframes arrive {
+  from {
+    background: var(--accent-subtle);
+  }
+  to {
+    background: transparent;
+  }
+}
+
+:host td.key {
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+:host td.actions {
+  width: 1%;
+  text-align: right;
+}
+
+:host .btn.ghost {
+  height: 24px;
+  padding: 0 8px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  background: transparent;
+  border-color: transparent;
+  color: var(--text-secondary);
+}
+
+:host .btn.ghost:hover {
+  background: var(--layer-alt);
+  color: var(--danger);
+}
+
+:host .empty {
+  padding: var(--space-section) var(--space-loose);
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :host tbody tr.arrived {
+    animation: none;
+  }
+}

@@ -33,3 +33,6 @@ ios/.build/
 ios/**/.build/
 *.xcuserdatad
 DerivedData/
+
+# Screenshots
+.shots/

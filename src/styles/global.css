@@ -9,146 +9,193 @@
   -webkit-tap-highlight-color: transparent;
 }
 
+html {
+  color-scheme: light dark;
+}
+
 body {
-  background: var(--bg);
+  background: var(--canvas);
   color: var(--text);
   font-family: var(--font-ui);
-  min-height: 100dvh;
+  font-size: 14px;
   line-height: 1.5;
+  min-height: 100dvh;
 }
 
 #router-outlet {
   display: block;
-  max-width: var(--maxw);
-  margin: 0 auto;
-  padding: var(--gap);
-  padding-bottom: 4rem;
 }
 
 h1 {
-  font-size: 1.5rem;
-  letter-spacing: -0.02em;
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
 }
 
 h2 {
-  font-size: 1.05rem;
-  color: var(--accent);
-  font-family: var(--font-mono);
+  font-size: 0.6875rem;
   font-weight: 600;
-}
-
-p {
-  color: var(--text-dim);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
 }
 
 code,
 .mono {
   font-family: var(--font-mono);
-  font-size: 0.85em;
+  font-size: 0.8125rem;
 }
 
 a {
   color: var(--accent);
 }
 
-.panel {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: var(--gap);
-  margin-bottom: var(--gap);
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
+/* ---------------------------------------------------------------- surfaces */
+
+.card {
+  background: var(--layer);
+  border: 1px solid var(--stroke);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
 }
+
+/* ----------------------------------------------------------------- controls */
 
 .btn {
   font: inherit;
-  font-family: var(--font-mono);
-  background: var(--surface-raised);
-  color: var(--accent);
-  border: 1px solid var(--accent-dim);
-  border-radius: var(--radius);
-  padding: 0.6rem 1rem;
+  font-weight: 600;
+  background: var(--layer);
+  color: var(--text);
+  border: 1px solid var(--stroke-strong);
+  border-radius: var(--radius-control);
+  padding: 0 16px;
+  height: 32px;
   cursor: pointer;
-  text-decoration: none;
-  display: inline-block;
-  text-align: center;
-  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  white-space: nowrap;
+  transition: background 100ms ease, border-color 100ms ease;
 }
 
 .btn:hover:not(:disabled) {
-  background: var(--accent-dim);
-  color: var(--bg);
+  background: var(--layer-alt);
+}
+
+.btn:active:not(:disabled) {
+  background: var(--stroke);
 }
 
 .btn:disabled {
-  opacity: 0.4;
+  color: var(--text-disabled);
+  border-color: var(--stroke);
   cursor: not-allowed;
 }
 
-.btn.danger {
-  color: var(--danger);
-  border-color: var(--danger);
+.btn.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
 }
 
-.btn.danger:hover:not(:disabled) {
-  background: var(--danger);
-  color: var(--bg);
+.btn.primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
+.btn.primary:disabled {
+  background: var(--layer-alt);
+  border-color: var(--stroke);
+  color: var(--text-disabled);
+}
+
+.btn:focus-visible,
+input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }
 
 input[type='text'] {
   font: inherit;
-  font-family: var(--font-mono);
-  background: var(--bg);
+  background: var(--layer-alt);
   color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 0.6rem;
+  border: 1px solid var(--stroke);
+  border-radius: var(--radius-control);
+  padding: 0 10px;
+  height: 32px;
   width: 100%;
-  min-height: 44px;
+  min-width: 0;
+}
+
+input[type='text']::placeholder {
+  color: var(--text-disabled);
 }
 
 input[type='text']:focus {
-  outline: 2px solid var(--accent-dim);
-  outline-offset: -1px;
+  border-color: var(--accent);
+  outline: none;
 }
 
-.row {
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
-  flex-wrap: wrap;
-}
+/* ------------------------------------------------------------------ shared */
 
 .muted {
-  color: var(--text-dim);
-  font-size: 0.9rem;
-}
-
-.warning {
-  color: var(--warning);
-}
-
-.danger-text {
-  color: var(--danger);
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
 }
 
 .hidden {
   display: none !important;
 }
 
+.row {
+  display: flex;
+  gap: var(--space-tight);
+  align-items: center;
+}
+
 .progress {
-  height: 6px;
-  background: var(--border);
-  border-radius: 3px;
+  height: 4px;
+  background: var(--stroke);
+  border-radius: 2px;
   overflow: hidden;
 }
 
 .progress > span {
   display: block;
   height: 100%;
-  background: var(--accent);
   width: 0;
+  background: var(--accent);
   transition: width 120ms linear;
+}
+
+/* A coloured dot plus a line of text, matching the iOS status row. */
+.status {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-tight);
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+}
+
+.status::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-secondary);
+  flex: none;
+  margin-top: 6px;
+}
+
+.status.active::before {
+  background: var(--accent);
+}
+
+.status.good::before {
+  background: var(--success);
+}
+
+.status.bad::before {
+  background: var(--danger);
 }

@@ -1,0 +1,88 @@
+<header class="bar">
+  <div class="brand">
+    <span class="mark" aria-hidden="true"></span>
+    <h1>lightdb</h1>
+  </div>
+  <div class="bar-actions">
+    <span class="replica mono" data-actor>…</span>
+    <button class="btn primary" id="sync-btn">Start sync</button>
+  </div>
+</header>
+
+<p class="status" data-status>Idle. Start a sync and point the other device at this screen.</p>
+
+<div class="panels">
+  <section class="card optical">
+    <div class="panel-head">
+      <h2>Optical link</h2>
+      <span class="muted" data-link-detail>duplex · idle</span>
+    </div>
+
+    <div class="optics">
+      <figure class="optic">
+        <figcaption>Transmitting</figcaption>
+        <div class="frame light">
+          <canvas id="qr-canvas" width="720" height="720" aria-label="Outgoing QR stream"></canvas>
+          <span class="placeholder" data-tx-placeholder>Idle</span>
+        </div>
+        <dl class="metrics">
+          <div><dt>frames</dt><dd data-tx-frames>0</dd></div>
+          <div><dt>blocks</dt><dd data-tx-blocks>—</dd></div>
+          <div><dt>passes</dt><dd data-tx-passes>0.0</dd></div>
+        </dl>
+      </figure>
+
+      <figure class="optic">
+        <figcaption>Receiving</figcaption>
+        <div class="frame dark">
+          <video id="camera" playsinline muted></video>
+          <span class="placeholder" data-rx-placeholder>Camera off</span>
+        </div>
+        <div class="progress"><span data-rx-bar></span></div>
+        <dl class="metrics">
+          <div><dt>frames</dt><dd data-rx-frames>0</dd></div>
+          <div><dt>blocks</dt><dd data-rx-blocks>—</dd></div>
+          <div><dt>peer</dt><dd data-peer>—</dd></div>
+        </dl>
+      </figure>
+    </div>
+
+    <p class="muted hint">
+      Hold the other device screen-to-screen. Its front camera reads this display
+      while this camera reads its screen, so both directions run at once.
+    </p>
+  </section>
+
+  <section class="card database">
+    <div class="panel-head">
+      <h2>Database</h2>
+      <span class="muted"><span data-count>0</span> records · <span data-ops>0</span> ops</span>
+    </div>
+
+    <div class="add-row">
+      <input type="text" id="key-input" placeholder="key" autocomplete="off" spellcheck="false" />
+      <input type="text" id="value-input" placeholder="value" autocomplete="off" spellcheck="false" />
+      <button class="btn" id="add-btn">Add</button>
+    </div>
+
+    <div class="records" data-records>
+      <p class="empty" data-empty>
+        No records yet. Add one, or start a sync and send from the phone.
+      </p>
+      <table data-table hidden>
+        <thead>
+          <tr><th>Key</th><th>Value</th><th aria-label="actions"></th></tr>
+        </thead>
+        <tbody data-tbody></tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
+<template id="record-row">
+  <tr>
+    <td class="key mono"></td>
+    <td class="value"></td>
+    <td class="actions"><button class="btn ghost delete-record" aria-label="delete">Delete</button></td>
+  </tr>
+</template>
