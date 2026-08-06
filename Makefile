@@ -96,18 +96,52 @@ ios-doctor: ## Report Xcode SDKs, runtimes and whether iOS destinations are elig
 
 .PHONY: ios-doctor
 
-DEVICE_ID ?=
+# --------------------------------------------------
+# Physical device (USB-C or paired over Wi-Fi)
+# --------------------------------------------------
+#
+# devicectl accepts a device name, UDID, ECID or serial, so DEVICE can just be
+# the name shown by `make devices`.
+#
+# TEAM_ID is your Apple Developer Team ID. Unlike the simulator, a device build
+# must be signed -- CODE_SIGNING_ALLOWED=NO produces a bundle iOS will refuse
+# to install. `make team` lists the identities you have.
 
-run-device: ## Build and run on a physical device (make run-device DEVICE_ID=<id>)
-	@test -n "$(DEVICE_ID)" || (echo "DEVICE_ID required. Run: xcrun devicectl list devices"; exit 1)
-	cd ios && xcodebuild -project LightDB.xcodeproj -scheme LightDB \
-		-destination "id=$(DEVICE_ID)" -configuration Debug \
-		-derivedDataPath .build/xcode build
-	xcrun devicectl device install app --device $(DEVICE_ID) \
-		ios/.build/xcode/Build/Products/Debug-iphoneos/LightDB.app
-	xcrun devicectl device process launch --device $(DEVICE_ID) $(BUNDLE_ID)
+DEVICE      ?= iPhoney
+TEAM_ID     ?=
+APP_BUNDLE  := ios/.build/xcode/Build/Products/Debug-iphoneos/LightDB.app
 
-devices: ## List connected physical devices
+devices: ## List paired physical devices
 	xcrun devicectl list devices
 
-.PHONY: run-device devices
+team: ## List code signing identities, to find your TEAM_ID
+	@security find-identity -v -p codesigning || true
+	@echo
+	@echo "The 10-character code in parentheses after the name is your TEAM_ID."
+
+device-pair: ## Pair a device that is plugged in but not yet trusted
+	xcrun devicectl manage pair --device $(DEVICE)
+
+build-device: ## Build a signed Debug build for a physical device
+	@test -n "$(TEAM_ID)" || (echo "TEAM_ID required. Run: make team"; exit 1)
+	cd ios && xcodebuild -project LightDB.xcodeproj -scheme LightDB \
+		-destination "platform=iOS,name=$(DEVICE)" -configuration Debug \
+		-derivedDataPath .build/xcode \
+		DEVELOPMENT_TEAM=$(TEAM_ID) \
+		-allowProvisioningUpdates \
+		build
+
+install-device: ## Install the built app onto the device
+	xcrun devicectl device install app --device $(DEVICE) $(APP_BUNDLE)
+
+launch-device: ## Launch the installed app, replacing any running copy
+	xcrun devicectl device process launch --device $(DEVICE) \
+		--terminate-existing $(BUNDLE_ID)
+
+run-device: build-device install-device launch-device ## Build, install and launch on the device
+
+console-device: ## Launch attached to the console, streaming stdout to the terminal
+	xcrun devicectl device process launch --device $(DEVICE) \
+		--terminate-existing --console $(BUNDLE_ID)
+
+.PHONY: devices team device-pair build-device install-device launch-device run-device console-device

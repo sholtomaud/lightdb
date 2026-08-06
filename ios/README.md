@@ -99,15 +99,43 @@ phone is the only real test.
 Free personal teams expire after **7 days**, after which the app stops opening
 and needs rebuilding from Xcode. A paid account extends that to a year.
 
-### From the terminal, after the first run
+### Two prerequisites, both easy to miss
+
+**1. Xcode's iOS platform component.** `make ios-doctor` tells you. Without it
+`xcodebuild` refuses every iOS destination — device *and* simulator — and blames
+"Any iOS Device", which sends you looking at the wrong thing. Fix with
+`make ios-platform`.
+
+**2. A code signing identity.** `make team` lists them. Unlike the simulator, a
+device build must be signed; `CODE_SIGNING_ALLOWED=NO` produces a bundle iOS
+will refuse to install. If it reports *0 valid identities*, you have never
+signed anything on this machine and the first build has to go through the Xcode
+GUI (Settings → Accounts → add your Apple ID) so it can create a development
+certificate. After that the terminal targets work.
+
+### From the terminal, once both are in place
 
 ```sh
-xcrun devicectl list devices                  # find the device id
-make run-device DEVICE_ID=<id>
+make devices                          # names and identifiers of paired devices
+make team                             # your TEAM_ID
+make run-device DEVICE=iPhoney TEAM_ID=XXXXXXXXXX
 ```
 
-Wireless install works once the phone has been paired over USB and *Connect via
-network* is ticked in Xcode's Devices window.
+`run-device` chains build → install → launch. The pieces are also separate
+(`build-device`, `install-device`, `launch-device`) when you only need one.
+
+`DEVICE` accepts a name, UDID, ECID or serial, so the name from `make devices`
+is enough. It defaults to `iPhoney`; override it or edit the Makefile.
+
+To see `print` output and crash logs while it runs:
+
+```sh
+make console-device DEVICE=iPhoney
+```
+
+Wireless install works once the phone has been paired over USB-C and *Connect
+via network* is ticked in Xcode's Devices window — after that the same commands
+work with the cable unplugged.
 
 ### What to actually test
 
