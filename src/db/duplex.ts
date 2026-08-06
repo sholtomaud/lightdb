@@ -34,6 +34,7 @@ export interface DuplexState {
 
   peer: string | null;
   lastMerged: number | null;
+  /** The peer's vector accounts for everything we hold: they have our data. */
   converged: boolean;
   message: string;
   tone: 'neutral' | 'active' | 'good' | 'bad';
@@ -67,8 +68,21 @@ export class DuplexSync {
   private peerVv: VersionVector | null = null;
   /** Guards against two re-encodes racing after a burst of frames. */
   private encoding = false;
+  private graceTimer: number | null = null;
+
+  /**
+   * How long to keep broadcasting after convergence.
+   *
+   * Neither side can prove the other knows they are converged -- the vector we
+   * acted on was encoded before they learned the same about us, so someone
+   * always stops first. A few seconds of the now-tiny message trades almost
+   * nothing for the peer nearly always finding out before we go quiet.
+   */
+  private static readonly GRACE_MS = 3000;
 
   onChange: ((state: DuplexState) => void) | null = null;
+  /** Fired once when the peer proves it holds everything we sent. */
+  onConfirmed: (() => void) | null = null;
 
   constructor(canvas: HTMLCanvasElement, video: HTMLVideoElement, options: DuplexOptions = {}) {
     this.transmitter = new OpticalTransmitter(canvas, {
@@ -137,6 +151,10 @@ export class DuplexSync {
   }
 
   stop(): void {
+    if (this.graceTimer !== null) {
+      clearTimeout(this.graceTimer);
+      this.graceTimer = null;
+    }
     this.transmitter.stop();
     this.scanner.stop();
     this.patch({ ...IDLE, decoderReady: this.state.decoderReady });
@@ -179,7 +197,12 @@ export class DuplexSync {
       this.peerVv = message.vv;
       await getPersistence().setPeerVector(message.peer, message.vv);
 
+      // Their vector accounts for everything we hold, so our data is
+      // definitively on the other device. This is the acknowledgement -- of the
+      // whole payload at once, not chunk by chunk.
       const converged = isConverged(getDb(), message.vv);
+      const newlyConfirmed = converged && !this.state.converged;
+
       this.patch({
         peer: message.peer,
         lastMerged: applied,
@@ -188,16 +211,40 @@ export class DuplexSync {
         receiveBlocks: null,
         tone: converged ? 'good' : 'active',
         message: converged
-          ? `In sync with ${message.peer.slice(0, 8)}.`
+          ? `In sync with ${message.peer.slice(0, 8)}. Stopping shortly…`
           : `Merged ${applied} record${applied === 1 ? '' : 's'} from ${message.peer.slice(0, 8)}.`,
       });
 
       // Now that the peer's vector is known, the next frames carry only what
       // they actually lack -- often nothing but the vector itself.
       await this.retransmit();
+
+      if (newlyConfirmed) {
+        this.onConfirmed?.();
+        this.beginGrace(message.peer);
+      }
     } catch (error) {
       this.patch({ message: `Could not merge: ${(error as Error).message}`, tone: 'bad' });
     }
+  }
+
+  /** Broadcast the now-tiny message a little longer, then stop on our own. */
+  private beginGrace(peer: string): void {
+    if (this.graceTimer !== null) clearTimeout(this.graceTimer);
+
+    this.graceTimer = setTimeout(() => {
+      this.graceTimer = null;
+      this.transmitter.stop();
+      this.scanner.stop();
+      this.patch({
+        ...IDLE,
+        decoderReady: this.state.decoderReady,
+        converged: true,
+        peer,
+        tone: 'good',
+        message: `In sync with ${peer.slice(0, 8)}. Link closed.`,
+      });
+    }, DuplexSync.GRACE_MS) as unknown as number;
   }
 
   private patch(changes: Partial<DuplexState>): void {

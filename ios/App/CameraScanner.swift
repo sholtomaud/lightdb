@@ -19,6 +19,13 @@ public final class CameraScanner: NSObject, @unchecked Sendable {
 
     public private(set) var state: State = .idle
 
+    /// Which camera to use.
+    ///
+    /// `.front` is what makes duplex possible: the front lens and the screen
+    /// face the same way, so this device can read another screen while its own
+    /// is being read. `.back` points away from the display and forces a flip.
+    public var position: AVCaptureDevice.Position = .back
+
     /// Called on the main actor for every decoded QR payload.
     public var onPayload: ((String) -> Void)?
 
@@ -70,7 +77,7 @@ public final class CameraScanner: NSObject, @unchecked Sendable {
 
         var errorDescription: String? {
             switch self {
-            case .noCamera: return "No rear camera available"
+            case .noCamera: return "No camera available on that side"
             case .cannotAddInput: return "Could not attach the camera"
             case .cannotAddOutput: return "Could not attach video output"
             }
@@ -87,7 +94,7 @@ public final class CameraScanner: NSObject, @unchecked Sendable {
 
         guard
             let device = AVCaptureDevice.default(
-                .builtInWideAngleCamera, for: .video, position: .back)
+                .builtInWideAngleCamera, for: .video, position: position)
         else { throw ConfigurationError.noCamera }
 
         try lockForStreaming(device)

@@ -86,7 +86,19 @@ export class SyncPageComponent extends BaseComponent {
     const status = this.querySelector('[data-status]');
     if (status) status.className = `status ${state.tone}`;
 
-    this.setText('[data-link-detail]', state.running ? 'duplex · live' : 'duplex · idle');
+    this.setText(
+      '[data-link-detail]',
+      state.converged ? 'duplex · in sync' : state.running ? 'duplex · live' : 'duplex · idle'
+    );
+
+    // The link closes itself once converged, so the button has to follow. Both
+    // conditions matter: `running` is also false during start-up, while the
+    // decoder is still resolving, and resetting there would undo the click
+    // that just started the sync.
+    if (!state.running && state.converged && this.duplex) {
+      this.duplex = null;
+      this.setSyncButton(false);
+    }
 
     // Transmit
     this.querySelector('.frame.light')?.classList.toggle('running', state.transmit !== null);
