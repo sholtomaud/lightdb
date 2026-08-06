@@ -54,12 +54,16 @@ struct TransmitSheet: View {
             }
             .padding(.horizontal, Theme.Space.loose)
 
-            if case .transmitting(let frames, let blocks, let passes) = model.status {
-                HStack(spacing: Theme.Space.section) {
-                    metric(String(frames), "frames")
+            HStack(spacing: Theme.Space.section) {
+                if case .transmitting(let frames, let blocks, _) = model.status {
+                    metric(String(frames), "sent")
                     metric(String(blocks), "blocks")
-                    metric(String(format: "%.1f", passes), "passes")
+                } else if model.sendConfirmed {
+                    metric("✓", "delivered")
                 }
+                // Zero here while transmitting is the tell: the camera is not
+                // seeing the other screen, so no confirmation can ever arrive.
+                metric(String(model.replyFramesSeen), "reply frames")
             }
         }
         .padding(.top, Theme.Space.section)
@@ -98,6 +102,17 @@ struct TransmitSheet: View {
             }
 
             StatusRow(tone: model.status.tone, message: model.status.message)
+
+            if let note = model.cameraNote {
+                StatusRow(tone: .bad, message: note)
+            } else if !model.sendConfirmed && model.replyFramesSeen == 0 {
+                StatusRow(
+                    tone: .neutral,
+                    message:
+                        "No reply frames yet. Keep the small camera view pointed at the "
+                        + "other screen, about 30cm away."
+                )
+            }
 
             if model.sendConfirmed {
                 Text(

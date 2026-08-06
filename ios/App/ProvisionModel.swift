@@ -57,14 +57,24 @@ final class ProvisionModel {
     private(set) var sendConfirmed = false
     private(set) var peer: String?
 
+    /// Frames the return channel has decoded. Zero while transmitting means the
+    /// camera is not seeing the other screen -- the single most useful thing to
+    /// know when a sync appears to do nothing.
+    private(set) var replyFramesSeen = 0
+    /// Surfaced so a refused or broken camera is visible rather than silent.
+    private(set) var cameraNote: String?
+
     /// Frames per second. Above ~15 most phone cameras start dropping frames.
     var fps: Double = 12
 
-    /// Kept running briefly after confirmation so the peer can also learn it is
+    /// Kept running after confirmation so the peer can also learn it is
     /// converged. Neither side can prove the other knows -- someone has to stop
-    /// first -- so this trades a couple of seconds for the peer almost always
-    /// finding out.
-    private static let graceSeconds: TimeInterval = 3
+    /// first -- so this trades time for the peer almost always finding out.
+    ///
+    /// Generous on purpose. The other side may still be acquiring focus or
+    /// framing, and stopping early strands it mid-transfer with no way to ask
+    /// for the rest.
+    private static let graceSeconds: TimeInterval = 10
 
     let scanner = CameraScanner()
 
@@ -105,8 +115,24 @@ final class ProvisionModel {
         isTransmitting = true
 
         // Transmission is useful even if the camera is refused, so this is
-        // started after and treated as degrading rather than failing.
-        Task { await scanner.start() }
+        // started after and degrades rather than fails. But the outcome must be
+        // visible: a silent camera failure looks exactly like a sync that is
+        // simply not working, with nothing to act on.
+        Task { [weak self] in
+            guard let self else { return }
+            await scanner.start()
+
+            switch scanner.state {
+            case .denied:
+                cameraNote = "Camera denied — cannot confirm delivery. Enable it in Settings."
+            case .failed(let reason):
+                cameraNote = "Camera unavailable — cannot confirm delivery. \(reason)"
+            case .running:
+                cameraNote = nil
+            case .idle:
+                cameraNote = "Camera did not start — cannot confirm delivery."
+            }
+        }
     }
 
     func stop() {
@@ -120,6 +146,8 @@ final class ProvisionModel {
         sendConfirmed = false
         peer = nil
         peerVector = nil
+        replyFramesSeen = 0
+        cameraNote = nil
         receiver.reset()
         scanner.stop()
         status = .idle
@@ -200,6 +228,7 @@ final class ProvisionModel {
             return
 
         case .progressed(let update):
+            replyFramesSeen = update.framesSeen
             if !sendConfirmed {
                 status = .receiving(blocks: update.blocksSolved, of: update.numBlocks)
             }

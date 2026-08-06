@@ -75,10 +75,14 @@ export class DuplexSync {
    *
    * Neither side can prove the other knows they are converged -- the vector we
    * acted on was encoded before they learned the same about us, so someone
-   * always stops first. A few seconds of the now-tiny message trades almost
-   * nothing for the peer nearly always finding out before we go quiet.
+   * always stops first.
+   *
+   * Generous on purpose. A laptop converges the instant the phone's first
+   * payload lands, while the phone may still be acquiring focus and framing on
+   * this screen; stopping after a second or two strands it with nothing to
+   * decode and no way to ask.
    */
-  private static readonly GRACE_MS = 3000;
+  private static readonly GRACE_MS = 10000;
 
   onChange: ((state: DuplexState) => void) | null = null;
   /** Fired once when the peer proves it holds everything we sent. */
