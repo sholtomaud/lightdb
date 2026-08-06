@@ -109,7 +109,11 @@ ios-doctor: ## Report Xcode SDKs, runtimes and whether iOS destinations are elig
 
 # Both are auto-detected, and both can be overridden:
 #   make phone DEVICE="My iPhone" TEAM_ID=ABCDE12345
-DEVICE      ?= $(shell xcrun devicectl list devices 2>/dev/null | awk '/available/ {print $$1; exit}')
+# First data row of the table, truncated at the column gap. devicectl reports
+# several states -- "connected", "available (paired)" -- so matching on state is
+# fragile, and matching /available/ would also match "unavailable". Taking the
+# name column keeps single-spaced device names like "My iPhone" intact.
+DEVICE      ?= $(shell xcrun devicectl list devices 2>/dev/null | awk 'NR>2 && NF {sub(/  +.*/,""); print; exit}')
 TEAM_ID     ?= $(shell security find-identity -v -p codesigning 2>/dev/null | grep -oE '\([A-Z0-9]{10}\)' | head -1 | tr -d '()')
 APP_BUNDLE  := ios/.build/xcode/Build/Products/Debug-iphoneos/LightDB.app
 BUILD_LOG   := ios/.build/device-build.log
