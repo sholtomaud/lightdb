@@ -19,8 +19,11 @@ struct TransmitSheet: View {
     var body: some View {
         GeometryReader { geometry in
             VStack(spacing: 0) {
+                // Slightly more than half: the symbol is the payload, and the
+                // bigger it renders the more pixels per module the other
+                // camera gets.
                 symbol
-                    .frame(height: geometry.size.height * 0.55)
+                    .frame(height: geometry.size.height * 0.62)
 
                 details
                     .frame(maxHeight: .infinity, alignment: .top)
@@ -35,26 +38,40 @@ struct TransmitSheet: View {
 
     // MARK: - top half
 
+    /// The symbol, and beneath it the return channel and counters.
+    ///
+    /// Nothing is allowed to overlap the QR code. Frames are encoded at ECC
+    /// level L, which recovers only about 7% of codewords -- the weakest level,
+    /// chosen deliberately because the fountain code handles loss at a higher
+    /// level and the capacity is better spent on payload. That leaves almost no
+    /// margin for occlusion: a small inset over the symbol consumes most of the
+    /// budget before the camera has contributed any blur of its own, and the
+    /// damaged frames simply fail CRC and are discarded. The transfer does not
+    /// break, it just quietly takes longer, which is the hardest kind of
+    /// problem to notice.
     private var symbol: some View {
         VStack(spacing: Theme.Space.normal) {
-            ZStack(alignment: .bottomTrailing) {
-                QRFrameView(image: model.frameImage)
-                    .frame(maxWidth: .infinity)
+            // No width forcing: QRFrameView keeps a 1:1 aspect, so letting it
+            // fit means it takes the largest square the remaining height
+            // allows rather than being squeezed by a fixed width.
+            QRFrameView(image: model.frameImage)
+                .padding(.horizontal, Theme.Space.loose)
 
-                // The return channel, small and in the corner: it exists to be
-                // aimed, not watched.
+            HStack(spacing: Theme.Space.loose) {
+                // The return channel: beside the symbol, never on it. It exists
+                // to be aimed, not watched, so it stays small.
                 CameraPreview(session: model.scanner.captureSession)
-                    .frame(width: 76, height: 76)
+                    .frame(width: 56, height: 56)
                     .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.control))
                     .overlay(
                         RoundedRectangle(cornerRadius: Theme.Radius.control)
-                            .stroke(model.sendConfirmed ? Theme.success : Theme.stroke, lineWidth: 2)
+                            .stroke(
+                                model.sendConfirmed ? Theme.success : Theme.stroke,
+                                lineWidth: 2
+                            )
                     )
-                    .padding(Theme.Space.normal)
-            }
-            .padding(.horizontal, Theme.Space.loose)
+                    .accessibilityLabel("Return channel camera")
 
-            HStack(spacing: Theme.Space.section) {
                 if case .transmitting(let frames, let blocks, _) = model.status {
                     metric(String(frames), "sent")
                     metric(String(blocks), "blocks")
@@ -63,10 +80,13 @@ struct TransmitSheet: View {
                 }
                 // Zero here while transmitting is the tell: the camera is not
                 // seeing the other screen, so no confirmation can ever arrive.
-                metric(String(model.replyFramesSeen), "reply frames")
+                metric(String(model.replyFramesSeen), "reply")
+
+                Spacer(minLength: 0)
             }
+            .padding(.horizontal, Theme.Space.loose)
         }
-        .padding(.top, Theme.Space.section)
+        .padding(.top, Theme.Space.loose)
     }
 
     private func metric(_ value: String, _ label: String) -> some View {
